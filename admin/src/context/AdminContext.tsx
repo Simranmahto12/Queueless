@@ -14,6 +14,13 @@ import {
   Alert,
   CounterStatus,
   FirebaseConnectionState,
+  User,
+  UserRole,
+  loginUser,
+  logoutUser,
+  resetUserPassword,
+  subscribeAuth,
+  provisionStaffOrAdmin,
 } from '@queueless/shared';
 import {
   getFirebaseServices,
@@ -44,6 +51,23 @@ interface ToastMessage {
 }
 
 interface AdminContextType {
+  // Authentication & Session
+  currentUser: User | null;
+  isAuthLoading: boolean;
+  login: (email: string, pass: string) => Promise<User>;
+  logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ success: boolean; message: string }>;
+  provisionStaff: (params: {
+    email: string;
+    password: string;
+    displayName: string;
+    phone?: string;
+    role: UserRole;
+    departmentId?: string;
+    assignedCounterId?: string;
+  }) => Promise<User>;
+
+  // Institutional Scopes
   institutions: Institution[];
   currentInstitution: Institution;
   setCurrentInstitution: (inst: Institution) => void;
@@ -79,6 +103,9 @@ interface AdminContextType {
 const AdminContext = createContext<AdminContextType | null>(null);
 
 export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+
   const [institutions] = useState<Institution[]>(MOCK_INSTITUTIONS);
   const [currentInstitution, setCurrentInstitution] = useState<Institution>(MOCK_INSTITUTIONS[0]);
   const [branches] = useState<Branch[]>(MOCK_BRANCHES);
@@ -93,6 +120,26 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [connectionState, setConnectionState] = useState<FirebaseConnectionState>('STANDALONE_FALLBACK');
+
+  // Listen for Authentication State
+  useEffect(() => {
+    const unsubAuth = subscribeAuth((user) => {
+      // Security check: visitors cannot hold an admin session
+      if (user && user.role === UserRole.VISITOR) {
+        setCurrentUser(null);
+      } else {
+        setCurrentUser(user);
+        // Automatically sync institution if user is assigned to one
+        if (user?.institutionId) {
+          const matchInst = institutions.find((i) => i.institutionId === user.institutionId);
+          if (matchInst) setCurrentInstitution(matchInst);
+        }
+      }
+      setIsAuthLoading(false);
+    });
+
+    return () => unsubAuth();
+  }, [institutions]);
 
   // Initialize Firebase and Real-Time Listeners
   useEffect(() => {
@@ -152,6 +199,48 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  // Authentication methods
+  const login = async (email: string, pass: string): Promise<User> => {
+    const user = await loginUser(email, pass, { requireAdminOrStaff: true });
+    setCurrentUser(user);
+    if (user.institutionId) {
+      const matchInst = institutions.find((i) => i.institutionId === user.institutionId);
+      if (matchInst) setCurrentInstitution(matchInst);
+    }
+    addToast('success', `Authenticated as ${user.displayName} (${user.role})`);
+    return user;
+  };
+
+  const logout = async () => {
+    await logoutUser();
+    setCurrentUser(null);
+    addToast('info', 'Signed out of administrator console.');
+  };
+
+  const resetPassword = async (email: string) => {
+    return await resetUserPassword(email);
+  };
+
+  const provisionStaff = async (params: {
+    email: string;
+    password: string;
+    displayName: string;
+    phone?: string;
+    role: UserRole;
+    departmentId?: string;
+    assignedCounterId?: string;
+  }): Promise<User> => {
+    if (!currentUser) throw new Error('Unauthorized');
+    const created = await provisionStaffOrAdmin({
+      ...params,
+      institutionId: currentInstitution.institutionId,
+      branchId: currentBranch.branchId,
+      authorizedByUserId: currentUser.id,
+    });
+    addToast('success', `Staff member ${created.displayName} provisioned successfully.`);
+    return created;
   };
 
   // Seed Firestore
@@ -265,6 +354,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const value = useMemo(
     () => ({
+      currentUser,
+      isAuthLoading,
+      login,
+      logout,
+      resetPassword,
+      provisionStaff,
       institutions,
       currentInstitution,
       setCurrentInstitution,
@@ -296,6 +391,8 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       updateZoneOccupancy,
     }),
     [
+      currentUser,
+      isAuthLoading,
       institutions,
       currentInstitution,
       branches,

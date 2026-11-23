@@ -16,6 +16,8 @@ import {
   listenSingleToken,
   listenInstitutions,
   loginUser,
+  registerVisitor,
+  resetUserPassword,
   loginGuest,
   logoutUser,
   subscribeAuth,
@@ -48,8 +50,11 @@ interface MobileContextType {
   setCurrentScreen: (screen: MobileScreen) => void;
   // User Session
   isAuthenticated: boolean;
+  isAuthLoading: boolean;
   user: { name: string; phone?: string; email: string; userId: string } | null;
   login: (email: string, pass: string) => Promise<void>;
+  register: (params: { email: string; password: string; displayName: string; phone?: string }) => Promise<void>;
+  resetPassword: (email: string) => Promise<{ success: boolean; message: string }>;
   loginAsGuest: () => Promise<void>;
   logout: () => Promise<void>;
   // Booking Selection Flow State
@@ -73,14 +78,10 @@ interface MobileContextType {
 const MobileContext = createContext<MobileContextType | null>(null);
 
 export const MobileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentScreen, setCurrentScreen] = useState<MobileScreen>('home');
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
-  const [user, setUser] = useState<{ name: string; phone?: string; email: string; userId: string } | null>({
-    name: 'David Miller',
-    phone: '+1 (555) 301-8842',
-    email: 'david.miller@example.com',
-    userId: 'user-vis-1',
-  });
+  const [currentScreen, setCurrentScreen] = useState<MobileScreen>('onboarding');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+  const [user, setUser] = useState<{ name: string; phone?: string; email: string; userId: string } | null>(null);
 
   const [institutions, setInstitutions] = useState<Institution[]>(MOCK_INSTITUTIONS);
   const [selectedInstitution, setSelectedInstitution] = useState<Institution>(MOCK_INSTITUTIONS[0]);
@@ -120,10 +121,12 @@ export const MobileProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           email: userProfile.email,
           userId: userProfile.userId,
         });
+        setCurrentScreen((prev) => (prev === 'onboarding' || prev === 'auth' ? 'home' : prev));
       } else {
         setIsAuthenticated(false);
         setUser(null);
       }
+      setIsAuthLoading(false);
     });
 
     const unsubInst = listenInstitutions((insts) => {
@@ -184,6 +187,27 @@ export const MobileProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       userId: profile.userId,
     });
     setCurrentScreen('home');
+  };
+
+  const register = async (params: {
+    email: string;
+    password: string;
+    displayName: string;
+    phone?: string;
+  }) => {
+    const profile = await registerVisitor(params);
+    setIsAuthenticated(true);
+    setUser({
+      name: profile.displayName,
+      phone: profile.phone,
+      email: profile.email,
+      userId: profile.userId,
+    });
+    setCurrentScreen('home');
+  };
+
+  const resetPassword = async (email: string) => {
+    return await resetUserPassword(email);
   };
 
   const loginAsGuest = async () => {
@@ -260,8 +284,11 @@ export const MobileProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         currentScreen,
         setCurrentScreen,
         isAuthenticated,
+        isAuthLoading,
         user,
         login,
+        register,
+        resetPassword,
         loginAsGuest,
         logout,
         institutions,

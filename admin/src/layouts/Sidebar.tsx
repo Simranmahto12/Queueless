@@ -10,6 +10,7 @@ import {
   BarChart3,
   AlertTriangle,
   Settings,
+  LogOut,
 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 
@@ -31,7 +32,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
-  const { alerts, tokens, currentInstitution } = useAdmin();
+  const { alerts, tokens, currentInstitution, currentUser, logout } = useAdmin();
 
   const unreadAlertsCount = alerts.filter((a) => !a.isAcknowledged).length;
   const waitingTokensCount = tokens.filter(
@@ -60,6 +61,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
     },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> },
   ];
+
+  // User initials
+  const initials = currentUser?.displayName
+    ? currentUser.displayName
+        .split(' ')
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase()
+    : 'AD';
+
+  const roleDisplay = currentUser?.role ? currentUser.role.replace(/_/g, ' ') : 'Administrator';
 
   return (
     <aside className="w-64 border-r border-borderSoft bg-white flex flex-col justify-between select-none">
@@ -114,15 +127,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
         </nav>
       </div>
 
-      {/* Admin Profile Footer */}
-      <div className="p-3.5 border-t border-borderSoft bg-slate-50/50 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-navy/10 text-navy font-semibold text-xs flex items-center justify-center border border-navy/20">
-          SA
+      {/* Authenticated Profile Footer with Sign Out */}
+      <div className="p-3.5 border-t border-borderSoft bg-slate-50/50 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-full bg-navy/10 text-navy font-bold text-xs flex items-center justify-center border border-navy/20 shrink-0">
+            {initials}
+          </div>
+          <div className="min-w-0 truncate">
+            <p className="text-xs font-semibold text-textMain truncate">
+              {currentUser?.displayName || 'Administrator'}
+            </p>
+            <p className="text-[10px] text-textMuted uppercase font-medium tracking-tight truncate">
+              {roleDisplay}
+            </p>
+          </div>
         </div>
-        <div className="flex-1 truncate">
-          <p className="text-xs font-semibold text-textMain truncate">Sarah Jenkins</p>
-          <p className="text-[11px] text-textMuted truncate">Lead Operations Admin</p>
-        </div>
+
+        <button
+          onClick={logout}
+          title="Sign Out of Admin Console"
+          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
       </div>
     </aside>
   );

@@ -38,13 +38,22 @@ service cloud.firestore {
     }
 
     // ---------------------------------------------------------
-    // Users Collection
+    // Users Collection (Strict Role-Based Access Control)
     // ---------------------------------------------------------
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.auth.uid == userId;
+      // Visitors can only self-register with role strictly set to VISITOR.
+      // Elevated administrative roles can only be created by SUPER_ADMIN or INSTITUTION_ADMIN.
+      allow create: if isSignedIn() && (
+        (request.auth.uid == userId && request.resource.data.role == 'VISITOR') ||
+        hasRole('SUPER_ADMIN') ||
+        (hasRole('INSTITUTION_ADMIN') && getUserData().institutionId == request.resource.data.institutionId)
+      );
+      // Users can update personal details, but CANNOT escalate their own role or switch institution.
       allow update: if isSignedIn() && (
-        request.auth.uid == userId ||
+        (request.auth.uid == userId &&
+         request.resource.data.role == resource.data.role &&
+         (!('institutionId' in request.resource.data) || request.resource.data.institutionId == resource.data.institutionId)) ||
         hasRole('SUPER_ADMIN') ||
         (hasRole('INSTITUTION_ADMIN') && getUserData().institutionId == resource.data.institutionId)
       );

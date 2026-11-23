@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Database } from 'lucide-react';
+import { Bell, Database, LogOut } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 
 interface HeaderProps {
@@ -17,6 +17,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAlerts }) => {
     alerts,
     connectionState,
     seedDatabase,
+    currentUser,
+    logout,
   } = useAdmin();
 
   const unreadAlerts = alerts.filter((a) => !a.isAcknowledged);
@@ -51,7 +53,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAlerts }) => {
   };
 
   return (
-    <header className="h-16 border-b border-borderSoft bg-white px-6 flex items-center justify-between z-10">
+    <header className="h-16 border-b border-borderSoft bg-white px-6 flex items-center justify-between z-10 select-none">
       {/* Institution & Branch Selector */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2 bg-slate-50 border border-borderSoft px-3 py-1.5 rounded-lg">
@@ -91,7 +93,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAlerts }) => {
         </div>
       </div>
 
-      {/* Operational Indicators & Seeder */}
+      {/* Operational Indicators & Actions */}
       <div className="flex items-center gap-3">
         {getConnectionBadge()}
 
@@ -116,6 +118,22 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAlerts }) => {
             <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500" />
           )}
         </button>
+
+        {/* Current User Pill & Sign Out */}
+        {currentUser && (
+          <div className="hidden md:flex items-center pl-2 border-l border-borderSoft gap-2">
+            <span className="text-xs font-medium text-slate-600 truncate max-w-[120px]">
+              {currentUser.displayName}
+            </span>
+            <button
+              onClick={logout}
+              className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg transition-colors"
+              title="Sign Out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

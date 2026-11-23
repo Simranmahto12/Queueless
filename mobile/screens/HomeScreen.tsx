@@ -31,10 +31,10 @@ export const HomeScreen: React.FC = () => {
       <ScrollView contentContainerStyle={styles.content}>
         {/* Top Greeting */}
         <View style={styles.greetingHeader}>
-          <div>
+          <View>
             <Text style={styles.greetingTitle}>Hello, {user?.name || 'Visitor'}</Text>
             <Text style={styles.greetingSubtitle}>Plan arrivals, avoid crowded waiting rooms</Text>
-          </div>
+          </View>
           <TouchableOpacity
             style={styles.notifBadge}
             onPress={() => setCurrentScreen('notifications')}

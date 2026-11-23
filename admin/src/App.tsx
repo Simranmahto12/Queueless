@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { AdminProvider } from './context/AdminContext';
+import { AdminProvider, useAdmin } from './context/AdminContext';
 import { Sidebar, AdminTab } from './layouts/Sidebar';
 import { Header } from './layouts/Header';
 import { ToastContainer } from './components/ToastContainer';
+import { LoginView } from './pages/LoginView';
+import { Loader2 } from 'lucide-react';
 
 // 10 Views
 import { OverviewView } from './pages/OverviewView';
@@ -17,7 +19,33 @@ import { AlertsView } from './pages/AlertsView';
 import { SettingsView } from './pages/SettingsView';
 
 const DashboardContent: React.FC = () => {
+  const { currentUser, isAuthLoading } = useAdmin();
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+
+  // Authenticating session check
+  if (isAuthLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-appBg select-none">
+        <div className="w-12 h-12 rounded-xl bg-navy flex items-center justify-center text-white font-bold text-2xl shadow-md mb-4 border border-navy">
+          Q
+        </div>
+        <div className="flex items-center gap-2.5 text-textMuted text-xs font-medium">
+          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+          <span>Verifying security credentials & session...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Unauthenticated user -> Guard protected dashboard routes
+  if (!currentUser) {
+    return (
+      <>
+        <LoginView />
+        <ToastContainer />
+      </>
+    );
+  }
 
   const renderCurrentView = () => {
     switch (activeTab) {
@@ -50,7 +78,7 @@ const DashboardContent: React.FC = () => {
     <div className="flex h-screen bg-appBg text-textMain antialiased overflow-hidden font-sans">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex-col min-w-0 overflow-hidden flex flex-1">
         <Header onOpenAlerts={() => setActiveTab('alerts')} />
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
           <div className="max-w-7xl mx-auto">
