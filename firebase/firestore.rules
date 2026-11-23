@@ -1,0 +1,181 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------------------------------------------------
+    // Helper Functions
+    // ---------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRole(role) {
+      return isSignedIn() && getUserData().role == role;
+    }
+
+    function belongsToInstitution(institutionId) {
+      return isSignedIn() && (
+        getUserData().role == 'SUPER_ADMIN' ||
+        getUserData().institutionId == institutionId
+      );
+    }
+
+    function isStaffOf(institutionId) {
+      return belongsToInstitution(institutionId) && (
+        getUserData().role in ['SUPER_ADMIN', 'INSTITUTION_ADMIN', 'BRANCH_ADMIN', 'DEPARTMENT_MANAGER', 'COUNTER_STAFF', 'SECURITY_STAFF']
+      );
+    }
+
+    function isBranchStaff(institutionId, branchId) {
+      return isStaffOf(institutionId) && (
+        getUserData().role in ['SUPER_ADMIN', 'INSTITUTION_ADMIN'] ||
+        getUserData().branchId == branchId
+      );
+    }
+
+    // ---------------------------------------------------------
+    // Users Collection
+    // ---------------------------------------------------------
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn() && (
+        request.auth.uid == userId ||
+        hasRole('SUPER_ADMIN') ||
+        (hasRole('INSTITUTION_ADMIN') && getUserData().institutionId == resource.data.institutionId)
+      );
+      allow delete: if hasRole('SUPER_ADMIN');
+    }
+
+    // ---------------------------------------------------------
+    // Institutions Collection
+    // ---------------------------------------------------------
+    match /institutions/{institutionId} {
+      // Anyone (including prospective visitors) can discover active institutions
+      allow read: if true;
+      allow create: if hasRole('SUPER_ADMIN');
+      allow update: if belongsToInstitution(institutionId) && (
+        hasRole('SUPER_ADMIN') || hasRole('INSTITUTION_ADMIN')
+      );
+      allow delete: if hasRole('SUPER_ADMIN');
+    }
+
+    // ---------------------------------------------------------
+    // Branches, Departments, Services, Counters
+    // ---------------------------------------------------------
+    match /branches/{branchId} {
+      allow read: if true;
+      allow write: if isStaffOf(request.resource.data.institutionId) && (
+        hasRole('SUPER_ADMIN') || hasRole('INSTITUTION_ADMIN')
+      );
+    }
+
+    match /departments/{departmentId} {
+      allow read: if true;
+      allow write: if isStaffOf(request.resource.data.institutionId) && (
+        hasRole('SUPER_ADMIN') || hasRole('INSTITUTION_ADMIN') || hasRole('BRANCH_ADMIN')
+      );
+    }
+
+    match /services/{serviceId} {
+      allow read: if true;
+      allow write: if isStaffOf(request.resource.data.institutionId) && (
+        hasRole('SUPER_ADMIN') || hasRole('INSTITUTION_ADMIN') || hasRole('BRANCH_ADMIN')
+      );
+    }
+
+    match /counters/{counterId} {
+      allow read: if true;
+      allow write: if isStaffOf(resource.data.institutionId || request.resource.data.institutionId);
+    }
+
+    match /staff/{staffId} {
+      allow read: if isStaffOf(resource.data.institutionId);
+      allow write: if isStaffOf(request.resource.data.institutionId) && (
+        hasRole('SUPER_ADMIN') || hasRole('INSTITUTION_ADMIN') || hasRole('BRANCH_ADMIN')
+      );
+    }
+
+    // ---------------------------------------------------------
+    // Tokens Collection
+    // ---------------------------------------------------------
+    match /tokens/{tokenId} {
+      // Visitors can read their own token; Staff can read tokens within their institution
+      allow read: if isSignedIn() && (
+        resource.data.visitorId == request.auth.uid ||
+        isStaffOf(resource.data.institutionId)
+      );
+
+      // Authenticated users can issue a token
+      allow create: if isSignedIn() && (
+        request.resource.data.visitorId == request.auth.uid ||
+        isStaffOf(request.resource.data.institutionId)
+      );
+
+      // Visitors can cancel their own token; Staff can advance lifecycle
+      allow update: if isSignedIn() && (
+        (resource.data.visitorId == request.auth.uid && request.resource.data.status == 'CANCELLED') ||
+        isStaffOf(resource.data.institutionId)
+      );
+
+      allow delete: if hasRole('SUPER_ADMIN');
+    }
+
+    // ---------------------------------------------------------
+    // Zones (Crowd & Occupancy Monitoring)
+    // ---------------------------------------------------------
+    match /zones/{zoneId} {
+      allow read: if isSignedIn();
+      allow write: if isBranchStaff(
+        resource.data.institutionId || request.resource.data.institutionId,
+        resource.data.branchId || request.resource.data.branchId
+      );
+    }
+
+    // ---------------------------------------------------------
+    // Check-Ins Collection
+    // ---------------------------------------------------------
+    match /checkIns/{checkInId} {
+      allow read: if isStaffOf(resource.data.institutionId) || (
+        isSignedIn() && resource.data.visitorId == request.auth.uid
+      );
+      allow create: if isSignedIn() && (
+        request.resource.data.visitorId == request.auth.uid ||
+        isStaffOf(request.resource.data.institutionId)
+      );
+      allow update: if isStaffOf(resource.data.institutionId);
+      allow delete: if hasRole('SUPER_ADMIN');
+    }
+
+    // ---------------------------------------------------------
+    // Alerts Collection
+    // ---------------------------------------------------------
+    match /alerts/{alertId} {
+      allow read: if isStaffOf(resource.data.institutionId);
+      allow create, update: if isStaffOf(
+        resource.data.institutionId || request.resource.data.institutionId
+      );
+      allow delete: if hasRole('SUPER_ADMIN') || (
+        hasRole('INSTITUTION_ADMIN') && belongsToInstitution(resource.data.institutionId)
+      );
+    }
+
+    // ---------------------------------------------------------
+    // Audit Logs Collection (Immutable)
+    // ---------------------------------------------------------
+    match /auditLogs/{logId} {
+      allow read: if isSignedIn() && (
+        hasRole('SUPER_ADMIN') ||
+        (hasRole('INSTITUTION_ADMIN') && belongsToInstitution(resource.data.institutionId))
+      );
+      // Audit logs are created via Admin SDK or system triggers
+      allow create: if isSignedIn();
+      allow update, delete: if false; // Append-only ledger
+    }
+
+  }
+}

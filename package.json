@@ -1,0 +1,27 @@
+{
+  "name": "queueless",
+  "version": "1.0.0",
+  "description": "Universal Smart Queue & Crowd Management Platform",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "admin",
+    "mobile",
+    "firebase/functions"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "build:shared": "npm run build --workspace=shared",
+    "dev:admin": "npm run dev --workspace=admin",
+    "dev:mobile": "npm run start --workspace=mobile",
+    "test": "npx tsx --test tests/unit/*.test.ts tests/integration/*.test.ts",
+    "test:unit": "npx tsx --test tests/unit/*.test.ts",
+    "test:integration": "npx tsx --test tests/integration/*.test.ts",
+    "emulators": "firebase emulators:start --config firebase/firebase.json",
+    "lint": "eslint . --ext .ts,.tsx"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15",
+    "typescript": "^5.4.5"
+  }
+}
