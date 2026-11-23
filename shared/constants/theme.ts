@@ -5,64 +5,83 @@
  */
 
 export const colors = {
-  // Brand Primary
-  primary: {
+  // Brand Foundation
+  navy: {
+    DEFAULT: '#142B4A',
+    50: '#F0F4F8',
+    100: '#D9E3EE',
+    200: '#B3C8DD',
+    300: '#8CADCC',
+    400: '#5A8BB5',
+    500: '#346B99',
+    600: '#23527D',
+    700: '#1A3F63',
+    800: '#142B4A', // Primary Navy
+    900: '#0E1E34',
+    950: '#08111E',
+  },
+
+  blue: {
+    DEFAULT: '#2563EB',
     50: '#EFF6FF',
     100: '#DBEAFE',
     200: '#BFDBFE',
     300: '#93C5FD',
     400: '#60A5FA',
-    500: '#3B82F6', // Standard Blue
-    600: '#2563EB', // Primary Brand Blue
+    500: '#3B82F6',
+    600: '#2563EB', // Secondary Blue
     700: '#1D4ED8',
-    800: '#1E40AF', // Deep Brand Blue
-    900: '#1E3A8A', // Dark Navy
-    950: '#172554',
+    800: '#1E40AF',
+    900: '#1E3A8A',
   },
 
   // Clean Neutral Surfaces & Text
   neutral: {
     white: '#FFFFFF',
-    50: '#F8FAFC',
+    bg: '#F7F9FC',
+    card: '#FFFFFF',
+    border: '#E5EAF1',
+    textMain: '#172033',
+    textSecondary: '#64748B',
+    50: '#F7F9FC',
     100: '#F1F5F9',
-    200: '#E2E8F0',
+    200: '#E5EAF1',
     300: '#CBD5E1',
     400: '#94A3B8',
     500: '#64748B',
     600: '#475569',
     700: '#334155',
     800: '#1E293B',
-    900: '#0F172A', // Primary Charcoal Headings
-    950: '#020617',
+    900: '#172033',
   },
 
   // Operational Status Colors
   status: {
     success: {
-      light: '#ECFDF5',
-      main: '#10B981',
-      dark: '#059669',
-      border: '#A7F3D0',
-      text: '#065F46',
+      light: '#F0FDF4',
+      main: '#16A36A',
+      dark: '#117A50',
+      border: '#BBF7D0',
+      text: '#166534',
     },
     warning: {
       light: '#FFFBEB',
-      main: '#F59E0B',
-      dark: '#D97706',
+      main: '#D99A25',
+      dark: '#B45309',
       border: '#FDE68A',
       text: '#92400E',
     },
     danger: {
       light: '#FEF2F2',
-      main: '#EF4444',
-      dark: '#DC2626',
+      main: '#DC4C4C',
+      dark: '#B91C1C',
       border: '#FECACA',
       text: '#991B1B',
     },
     info: {
       light: '#EFF6FF',
-      main: '#3B82F6',
-      dark: '#2563EB',
+      main: '#2563EB',
+      dark: '#1D4ED8',
       border: '#BFDBFE',
       text: '#1E40AF',
     },
@@ -70,11 +89,11 @@ export const colors = {
 
   // Crowd Occupancy Heatmap Scale
   occupancy: {
-    normal: '#10B981',     // Green: < 60%
-    moderate: '#3B82F6',   // Blue: 60-79%
-    elevated: '#F59E0B',   // Amber: 80-94%
-    critical: '#F97316',   // Orange: 95-100%
-    overcrowded: '#EF4444', // Red: > 100%
+    normal: '#16A36A',     // Green: < 60%
+    moderate: '#2563EB',   // Blue: 60-79%
+    elevated: '#D99A25',   // Amber: 80-94%
+    critical: '#EA580C',   // Orange: 95-100%
+    overcrowded: '#DC4C4C', // Red: > 100%
   },
 } as const;
 
@@ -91,9 +110,9 @@ export const spacing = {
 export const borderRadius = {
   none: 0,
   sm: 6,
-  md: 10,
-  lg: 14,
-  xl: 20,
+  md: 8,
+  lg: 12,
+  xl: 16,
   full: 9999,
 } as const;
 
