@@ -1,6 +1,6 @@
 # QueueLess — Universal Smart Queue & Crowd Management Platform
 
-QueueLess is an enterprise, multi-sector queue optimization and crowd intelligence platform designed to eliminate physical waiting lines, prevent overcrowding, and dynamically recommend counter staffing for:
+QueueLess is an enterprise, multi-sector queue optimization and crowd intelligence platform designed to eliminate physical waiting lines, prevent overcrowding, and dynamically recommend counter staffing, with digital token booking, real-time queue tracking, QR-based check-ins, smart arrival slots, and live occupancy monitoring for:
 
 - **Hospitals & Medical Centers**
 - **Banks & Financial Institutions**
