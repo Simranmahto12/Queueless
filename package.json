@@ -17,6 +17,7 @@
     "test": "npx tsx --test tests/unit/*.test.ts tests/integration/*.test.ts",
     "test:unit": "npx tsx --test tests/unit/*.test.ts",
     "test:integration": "npx tsx --test tests/integration/*.test.ts",
+    "seed:db": "npx tsx scripts/seed.ts",
     "emulators": "firebase emulators:start --config firebase/firebase.json",
     "lint": "eslint . --ext .ts,.tsx"
   },

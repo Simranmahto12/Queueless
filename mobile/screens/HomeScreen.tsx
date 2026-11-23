@@ -16,6 +16,7 @@ export const HomeScreen: React.FC = () => {
     activeToken,
     setCurrentScreen,
     setSelectedInstitution,
+    institutions,
   } = useMobile();
 
   const categories = [
@@ -120,7 +121,7 @@ export const HomeScreen: React.FC = () => {
           </View>
 
           <View style={styles.institutionList}>
-            {MOCK_INSTITUTIONS.map((inst) => (
+            {institutions.map((inst) => (
               <TouchableOpacity
                 key={inst.institutionId}
                 style={styles.instCard}

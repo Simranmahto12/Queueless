@@ -20,7 +20,7 @@ export const AuthScreen: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!email.includes('@')) {
       setError('Please provide a valid email address.');
       return;
@@ -30,7 +30,11 @@ export const AuthScreen: React.FC = () => {
       return;
     }
     setError('');
-    login(email, password);
+    try {
+      await login(email, password);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Authentication failed.');
+    }
   };
 
   return (

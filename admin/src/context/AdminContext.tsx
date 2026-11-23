@@ -1,17 +1,8 @@
-import React, { createContext, useContext, useState, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import {
   MOCK_INSTITUTIONS,
   MOCK_BRANCHES,
-  MOCK_DEPARTMENTS,
-  MOCK_SERVICES,
-  MOCK_COUNTERS,
-  MOCK_ZONES,
-  MOCK_TOKENS,
-  MOCK_STAFF,
-  MOCK_ALERTS,
   MOCK_ANALYTICS,
-} from '@queueless/shared';
-import {
   Institution,
   Branch,
   Department,
@@ -21,8 +12,30 @@ import {
   Token,
   Zone,
   Alert,
+  CounterStatus,
+  FirebaseConnectionState,
 } from '@queueless/shared';
-import { CounterStatus, TokenStatus, AlertSeverity } from '@queueless/shared';
+import {
+  getFirebaseServices,
+  listenBranchTokens,
+  listenCounters,
+  listenZones,
+  listenAlerts,
+  listenDepartments,
+  listenServices,
+  listenStaff,
+  callNextToken as callNextTokenBackend,
+  markTokenServed as markTokenServedBackend,
+  skipToken as skipTokenBackend,
+  recallToken as recallTokenBackend,
+  cancelToken as cancelTokenBackend,
+  updateCounterStatus as updateCounterStatusBackend,
+  acknowledgeAlert as acknowledgeAlertBackend,
+  createDepartment as createDepartmentBackend,
+  createService as createServiceBackend,
+  simulateFootfall as simulateFootfallBackend,
+  seedFirestoreDatabase,
+} from '@queueless/shared';
 
 interface ToastMessage {
   id: string;
@@ -48,17 +61,19 @@ interface AdminContextType {
   toasts: ToastMessage[];
   addToast: (type: ToastMessage['type'], message: string) => void;
   removeToast: (id: string) => void;
+  connectionState: FirebaseConnectionState;
+  seedDatabase: () => Promise<void>;
   // Queue & Counter Operations
-  callNextToken: (counterId: string) => void;
-  markTokenServed: (tokenId: string) => void;
-  skipToken: (tokenId: string) => void;
-  recallToken: (tokenId: string) => void;
-  cancelToken: (tokenId: string, reason?: string) => void;
-  updateCounterStatus: (counterId: string, status: CounterStatus) => void;
-  acknowledgeAlert: (alertId: string) => void;
-  addDepartment: (dept: Partial<Department>) => void;
-  addService: (srv: Partial<Service>) => void;
-  updateZoneOccupancy: (zoneId: string, delta: number) => void;
+  callNextToken: (counterId: string) => Promise<void>;
+  markTokenServed: (tokenId: string) => Promise<void>;
+  skipToken: (tokenId: string) => Promise<void>;
+  recallToken: (tokenId: string) => Promise<void>;
+  cancelToken: (tokenId: string, reason?: string) => Promise<void>;
+  updateCounterStatus: (counterId: string, status: CounterStatus) => Promise<void>;
+  acknowledgeAlert: (alertId: string) => Promise<void>;
+  addDepartment: (dept: Partial<Department>) => Promise<void>;
+  addService: (srv: Partial<Service>) => Promise<void>;
+  updateZoneOccupancy: (zoneId: string, delta: number) => Promise<void>;
 }
 
 const AdminContext = createContext<AdminContextType | null>(null);
@@ -69,14 +84,63 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [branches] = useState<Branch[]>(MOCK_BRANCHES);
   const [currentBranch, setCurrentBranch] = useState<Branch>(MOCK_BRANCHES[0]);
 
-  const [departments, setDepartments] = useState<Department[]>(MOCK_DEPARTMENTS);
-  const [services, setServices] = useState<Service[]>(MOCK_SERVICES);
-  const [counters, setCounters] = useState<Counter[]>(MOCK_COUNTERS);
-  const [zones, setZones] = useState<Zone[]>(MOCK_ZONES);
-  const [tokens, setTokens] = useState<Token[]>(MOCK_TOKENS);
-  const [staff, setStaff] = useState<Staff[]>(MOCK_STAFF);
-  const [alerts, setAlerts] = useState<Alert[]>(MOCK_ALERTS);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [counters, setCounters] = useState<Counter[]>([]);
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [tokens, setTokens] = useState<Token[]>([]);
+  const [staff, setStaff] = useState<Staff[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [connectionState, setConnectionState] = useState<FirebaseConnectionState>('STANDALONE_FALLBACK');
+
+  // Initialize Firebase and Real-Time Listeners
+  useEffect(() => {
+    const servicesObj = getFirebaseServices();
+    setConnectionState(servicesObj.connectionState);
+
+    const instId = currentInstitution.institutionId;
+    const branchId = currentBranch.branchId;
+
+    // Real-Time Listeners
+    const unsubTokens = listenBranchTokens(instId, branchId, (newTokens) => {
+      setTokens(newTokens);
+    });
+
+    const unsubCounters = listenCounters(instId, branchId, (newCounters) => {
+      setCounters(newCounters);
+    });
+
+    const unsubZones = listenZones(instId, branchId, (newZones) => {
+      setZones(newZones);
+    });
+
+    const unsubAlerts = listenAlerts(instId, branchId, (newAlerts) => {
+      setAlerts(newAlerts);
+    });
+
+    const unsubDepts = listenDepartments(instId, branchId, (newDepts) => {
+      setDepartments(newDepts);
+    });
+
+    const unsubServices = listenServices(instId, branchId, (newServices) => {
+      setServices(newServices);
+    });
+
+    const unsubStaff = listenStaff(instId, branchId, (newStaff) => {
+      setStaff(newStaff);
+    });
+
+    return () => {
+      unsubTokens();
+      unsubCounters();
+      unsubZones();
+      unsubAlerts();
+      unsubDepts();
+      unsubServices();
+      unsubStaff();
+    };
+  }, [currentInstitution.institutionId, currentBranch.branchId]);
 
   const addToast = (type: ToastMessage['type'], message: string) => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -90,256 +154,113 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Call Next Token to specific counter
-  const callNextToken = (counterId: string) => {
-    const counter = counters.find((c) => c.counterId === counterId);
-    if (!counter) return;
-
-    // Find next eligible waiting or checked-in token
-    const eligibleToken = tokens.find(
-      (t) =>
-        (t.status === TokenStatus.WAITING || t.status === TokenStatus.CHECKED_IN) &&
-        counter.supportedServiceIds.includes(t.serviceId)
-    );
-
-    if (!eligibleToken) {
-      addToast('info', 'No more waiting tokens for this counter.');
-      return;
+  // Seed Firestore
+  const seedDatabase = async () => {
+    addToast('info', 'Executing Firestore database seed...');
+    const result = await seedFirestoreDatabase();
+    if (result.success) {
+      addToast('success', result.message);
+    } else {
+      addToast('warning', result.message);
     }
-
-    const now = new Date().toISOString();
-
-    setTokens((prev) =>
-      prev.map((t) =>
-        t.tokenId === eligibleToken.tokenId
-          ? {
-              ...t,
-              status: TokenStatus.CALLED,
-              assignedCounterId: counter.counterId,
-              assignedCounterNumber: counter.counterNumber,
-              calledAt: now,
-              updatedAt: now,
-            }
-          : t
-      )
-    );
-
-    setCounters((prev) =>
-      prev.map((c) =>
-        c.counterId === counterId
-          ? {
-              ...c,
-              status: CounterStatus.BUSY,
-              currentServedTokenId: eligibleToken.tokenId,
-              lastCalledAt: now,
-              updatedAt: now,
-            }
-          : c
-      )
-    );
-
-    addToast('success', `Token ${eligibleToken.tokenNumber} summoned to ${counter.counterNumber}`);
   };
 
-  // Mark token completed
-  const markTokenServed = (tokenId: string) => {
-    const now = new Date().toISOString();
-    const token = tokens.find((t) => t.tokenId === tokenId);
-    if (!token) return;
+  // Call Next Token (Atomic Transaction)
+  const callNextToken = async (counterId: string) => {
+    try {
+      const counter = counters.find((c) => c.counterId === counterId);
+      const staffMember = staff.find((s) => s.assignedCounterId === counterId) || staff[0];
 
-    setTokens((prev) =>
-      prev.map((t) =>
-        t.tokenId === tokenId
-          ? {
-              ...t,
-              status: TokenStatus.COMPLETED,
-              serviceCompletedAt: now,
-              updatedAt: now,
-            }
-          : t
-      )
-    );
+      const token = await callNextTokenBackend({
+        institutionId: currentInstitution.institutionId,
+        branchId: currentBranch.branchId,
+        counterId,
+        staffId: staffMember?.staffId || 'staff-default',
+      });
 
-    if (token.assignedCounterId) {
-      setCounters((prev) =>
-        prev.map((c) =>
-          c.counterId === token.assignedCounterId
-            ? {
-                ...c,
-                status: CounterStatus.OPEN,
-                currentServedTokenId: undefined,
-                updatedAt: now,
-              }
-            : c
-        )
-      );
+      if (!token) {
+        addToast('info', 'No more waiting tokens for this counter.');
+      } else {
+        addToast(
+          'success',
+          `Token ${token.tokenNumber} summoned to ${counter?.counterNumber || 'Counter'}`
+        );
+      }
+    } catch (err) {
+      addToast('danger', `Failed to call next token: ${err instanceof Error ? err.message : String(err)}`);
     }
-
-    addToast('success', `Token ${token.tokenNumber} marked as completed.`);
   };
 
-  // Skip token (e.g. absent when called)
-  const skipToken = (tokenId: string) => {
-    const now = new Date().toISOString();
-    const token = tokens.find((t) => t.tokenId === tokenId);
-    if (!token) return;
-
-    setTokens((prev) =>
-      prev.map((t) =>
-        t.tokenId === tokenId
-          ? {
-              ...t,
-              status: TokenStatus.NO_SHOW,
-              updatedAt: now,
-            }
-          : t
-      )
-    );
-
-    if (token.assignedCounterId) {
-      setCounters((prev) =>
-        prev.map((c) =>
-          c.counterId === token.assignedCounterId
-            ? {
-                ...c,
-                status: CounterStatus.OPEN,
-                currentServedTokenId: undefined,
-                updatedAt: now,
-              }
-            : c
-        )
-      );
+  // Mark token completed (Atomic Transaction)
+  const markTokenServed = async (tokenId: string) => {
+    try {
+      const token = tokens.find((t) => t.tokenId === tokenId);
+      await markTokenServedBackend(tokenId, token?.assignedCounterId);
+      addToast('success', `Token ${token?.tokenNumber || tokenId} marked as completed.`);
+    } catch (err) {
+      addToast('danger', `Error completing token: ${err instanceof Error ? err.message : String(err)}`);
     }
-
-    addToast('warning', `Token ${token.tokenNumber} skipped (No Show recorded).`);
   };
 
-  // Recall token to current counter
-  const recallToken = (tokenId: string) => {
+  // Skip token (Atomic Transaction)
+  const skipToken = async (tokenId: string) => {
+    try {
+      const token = tokens.find((t) => t.tokenId === tokenId);
+      await skipTokenBackend(tokenId, token?.assignedCounterId);
+      addToast('warning', `Token ${token?.tokenNumber || tokenId} skipped (No Show recorded).`);
+    } catch (err) {
+      addToast('danger', `Error skipping token: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
+  // Recall token
+  const recallToken = async (tokenId: string) => {
     const token = tokens.find((t) => t.tokenId === tokenId);
-    if (!token) return;
-    addToast('info', `Notification & audio chime re-broadcasted for ${token.tokenNumber}`);
+    await recallTokenBackend(tokenId);
+    addToast('info', `Notification & audio chime re-broadcasted for ${token?.tokenNumber || tokenId}`);
   };
 
   // Cancel token
-  const cancelToken = (tokenId: string, reason?: string) => {
-    const now = new Date().toISOString();
-    setTokens((prev) =>
-      prev.map((t) =>
-        t.tokenId === tokenId
-          ? {
-              ...t,
-              status: TokenStatus.CANCELLED,
-              cancelledAt: now,
-              notes: reason || t.notes,
-              updatedAt: now,
-            }
-          : t
-      )
-    );
+  const cancelToken = async (tokenId: string, reason?: string) => {
+    await cancelTokenBackend(tokenId, reason);
     addToast('info', `Token marked as cancelled.`);
   };
 
-  // Update counter operational status (OPEN / PAUSED / CLOSED)
-  const updateCounterStatus = (counterId: string, status: CounterStatus) => {
-    const now = new Date().toISOString();
-    setCounters((prev) =>
-      prev.map((c) =>
-        c.counterId === counterId
-          ? {
-              ...c,
-              status,
-              updatedAt: now,
-            }
-          : c
-      )
-    );
+  // Update counter status
+  const updateCounterStatus = async (counterId: string, status: CounterStatus) => {
+    await updateCounterStatusBackend(counterId, status);
     addToast('info', `Counter status updated to ${status}`);
   };
 
   // Acknowledge Alert
-  const acknowledgeAlert = (alertId: string) => {
-    const now = new Date().toISOString();
-    setAlerts((prev) =>
-      prev.map((a) =>
-        a.alertId === alertId
-          ? {
-              ...a,
-              isAcknowledged: true,
-              acknowledgedAt: now,
-              updatedAt: now,
-            }
-          : a
-      )
-    );
+  const acknowledgeAlert = async (alertId: string) => {
+    await acknowledgeAlertBackend(alertId);
     addToast('success', 'Alert acknowledged.');
   };
 
   // Add Department
-  const addDepartment = (dept: Partial<Department>) => {
-    const now = new Date().toISOString();
-    const newDept: Department = {
-      id: `dep-${Date.now()}`,
-      departmentId: `dep-${Date.now()}`,
+  const addDepartment = async (dept: Partial<Department>) => {
+    const created = await createDepartmentBackend({
+      ...dept,
       institutionId: currentInstitution.institutionId,
       branchId: currentBranch.branchId,
-      name: dept.name || 'New Department',
-      code: dept.code || 'DEP-NEW',
-      description: dept.description,
-      floor: dept.floor,
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
-    };
-    setDepartments((prev) => [...prev, newDept]);
-    addToast('success', `Department "${newDept.name}" created.`);
+    });
+    addToast('success', `Department "${created.name}" created.`);
   };
 
   // Add Service
-  const addService = (srv: Partial<Service>) => {
-    const now = new Date().toISOString();
-    const newSrv: Service = {
-      id: `srv-${Date.now()}`,
-      serviceId: `srv-${Date.now()}`,
+  const addService = async (srv: Partial<Service>) => {
+    const created = await createServiceBackend({
+      ...srv,
       institutionId: currentInstitution.institutionId,
       branchId: currentBranch.branchId,
-      departmentId: srv.departmentId || departments[0]?.departmentId || 'dep-cardio',
-      name: srv.name || 'New Service',
-      code: srv.code || 'SRV-NEW',
-      estimatedDurationMinutes: srv.estimatedDurationMinutes || 15,
-      bufferMinutes: srv.bufferMinutes || 5,
-      requiresAppointment: srv.requiresAppointment ?? false,
-      allowWalkIn: srv.allowWalkIn ?? true,
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
-    };
-    setServices((prev) => [...prev, newSrv]);
-    addToast('success', `Service "${newSrv.name}" created.`);
+    });
+    addToast('success', `Service "${created.name}" created.`);
   };
 
-  // Adjust Zone Occupancy for interactive testing/demo
-  const updateZoneOccupancy = (zoneId: string, delta: number) => {
-    setZones((prev) =>
-      prev.map((z) => {
-        if (z.zoneId !== zoneId) return z;
-        const newOcc = Math.max(0, Math.min(z.maxCapacity * 1.5, z.currentOccupancy + delta));
-        const pct = (newOcc / z.maxCapacity) * 100;
-        let status = z.occupancyStatus;
-        if (pct > 100) status = 'OVERCROWDED' as any;
-        else if (pct >= 95) status = 'CRITICAL' as any;
-        else if (pct >= 80) status = 'ELEVATED' as any;
-        else if (pct >= 60) status = 'MODERATE' as any;
-        else status = 'NORMAL' as any;
-
-        return {
-          ...z,
-          currentOccupancy: newOcc,
-          occupancyStatus: status,
-          updatedAt: new Date().toISOString(),
-        };
-      })
-    );
+  // Simulate Footfall
+  const updateZoneOccupancy = async (zoneId: string, delta: number) => {
+    await simulateFootfallBackend(zoneId, delta);
   };
 
   const value = useMemo(
@@ -361,6 +282,8 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       toasts,
       addToast,
       removeToast,
+      connectionState,
+      seedDatabase,
       callNextToken,
       markTokenServed,
       skipToken,
@@ -385,6 +308,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       staff,
       alerts,
       toasts,
+      connectionState,
     ]
   );
 

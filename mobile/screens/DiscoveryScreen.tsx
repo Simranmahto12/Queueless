@@ -12,12 +12,12 @@ import { useMobile } from '../context/MobileContext';
 import { MOCK_INSTITUTIONS, InstitutionSector } from '@queueless/shared';
 
 export const DiscoveryScreen: React.FC = () => {
-  const { setSelectedInstitution, setCurrentScreen } = useMobile();
+  const { setSelectedInstitution, setCurrentScreen, institutions } = useMobile();
 
   const [search, setSearch] = useState('');
   const [selectedSector, setSelectedSector] = useState<string>('ALL');
 
-  const filtered = MOCK_INSTITUTIONS.filter((inst) => {
+  const filtered = institutions.filter((inst) => {
     if (selectedSector !== 'ALL' && inst.sector !== selectedSector) return false;
     if (search.trim()) {
       return (

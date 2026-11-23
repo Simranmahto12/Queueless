@@ -39,8 +39,8 @@ export const ServiceSelectionScreen: React.FC = () => {
   ];
   const [selectedSlot, setSelectedSlot] = useState(availableSlots[0].time);
 
-  const handleConfirm = () => {
-    bookNewToken(selectedSlot);
+  const handleConfirm = async () => {
+    await bookNewToken(selectedSlot);
     setCurrentScreen('booking_confirmation');
   };
 

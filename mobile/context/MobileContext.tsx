@@ -1,16 +1,25 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   MOCK_INSTITUTIONS,
   MOCK_DEPARTMENTS,
   MOCK_SERVICES,
-  MOCK_TOKENS,
   Institution,
   Department,
   Service,
   Token,
+  TokenStatus,
+  TokenPriority,
 } from '@queueless/shared';
-import { TokenStatus, TokenPriority } from '@queueless/shared';
-import { calculateSmartArrivalSlot, estimateWaitTime } from '@queueless/shared';
+import {
+  bookToken as bookTokenBackend,
+  cancelToken as cancelTokenBackend,
+  listenSingleToken,
+  listenInstitutions,
+  loginUser,
+  loginGuest,
+  logoutUser,
+  subscribeAuth,
+} from '@queueless/shared';
 
 export interface MobileNotification {
   id: string;
@@ -39,10 +48,12 @@ interface MobileContextType {
   setCurrentScreen: (screen: MobileScreen) => void;
   // User Session
   isAuthenticated: boolean;
-  user: { name: string; phone: string; email: string } | null;
-  login: (email: string, pass: string) => void;
-  logout: () => void;
+  user: { name: string; phone?: string; email: string; userId: string } | null;
+  login: (email: string, pass: string) => Promise<void>;
+  loginAsGuest: () => Promise<void>;
+  logout: () => Promise<void>;
   // Booking Selection Flow State
+  institutions: Institution[];
   selectedInstitution: Institution;
   setSelectedInstitution: (inst: Institution) => void;
   selectedDepartment: Department | null;
@@ -52,8 +63,8 @@ interface MobileContextType {
   // Active Token & History
   activeToken: Token | null;
   tokensHistory: Token[];
-  bookNewToken: (slotTime: string, priority?: TokenPriority) => Token;
-  cancelActiveToken: () => void;
+  bookNewToken: (slotTime: string, priority?: TokenPriority) => Promise<Token>;
+  cancelActiveToken: () => Promise<void>;
   // Notifications
   notifications: MobileNotification[];
   markNotificationAsRead: (id: string) => void;
@@ -64,18 +75,20 @@ const MobileContext = createContext<MobileContextType | null>(null);
 export const MobileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentScreen, setCurrentScreen] = useState<MobileScreen>('home');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
-  const [user, setUser] = useState<{ name: string; phone: string; email: string } | null>({
+  const [user, setUser] = useState<{ name: string; phone?: string; email: string; userId: string } | null>({
     name: 'David Miller',
     phone: '+1 (555) 301-8842',
     email: 'david.miller@example.com',
+    userId: 'user-vis-1',
   });
 
+  const [institutions, setInstitutions] = useState<Institution[]>(MOCK_INSTITUTIONS);
   const [selectedInstitution, setSelectedInstitution] = useState<Institution>(MOCK_INSTITUTIONS[0]);
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(MOCK_DEPARTMENTS[0]);
   const [selectedService, setSelectedService] = useState<Service | null>(MOCK_SERVICES[0]);
 
-  const [activeToken, setActiveToken] = useState<Token | null>(MOCK_TOKENS[1]); // CARD-102 (Waiting)
-  const [tokensHistory, setTokensHistory] = useState<Token[]>(MOCK_TOKENS);
+  const [activeToken, setActiveToken] = useState<Token | null>(null);
+  const [tokensHistory, setTokensHistory] = useState<Token[]>([]);
 
   const [notifications, setNotifications] = useState<MobileNotification[]>([
     {
@@ -94,90 +107,133 @@ export const MobileProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       type: 'CONFIRMATION',
       isRead: true,
     },
-    {
-      id: 'notif-3',
-      title: 'Queue Moving Fast',
-      message: 'Desk 01 has called token CARD-101. You are 1 person away.',
-      time: 'Just now',
-      type: 'QUEUE_UPDATE',
-      isRead: false,
-    },
   ]);
 
-  const login = (email: string, pass: string) => {
+  // Sync Auth State & Catalog Listeners
+  useEffect(() => {
+    const unsubAuth = subscribeAuth((userProfile) => {
+      if (userProfile) {
+        setIsAuthenticated(true);
+        setUser({
+          name: userProfile.displayName,
+          phone: userProfile.phone,
+          email: userProfile.email,
+          userId: userProfile.userId,
+        });
+      } else {
+        setIsAuthenticated(false);
+        setUser(null);
+      }
+    });
+
+    const unsubInst = listenInstitutions((insts) => {
+      if (insts && insts.length > 0) {
+        setInstitutions(insts);
+      }
+    });
+
+    return () => {
+      unsubAuth();
+      unsubInst();
+    };
+  }, []);
+
+  // Real-Time Single Token Listener for Active Token
+  useEffect(() => {
+    if (!activeToken?.tokenId) return;
+
+    const unsubToken = listenSingleToken(activeToken.tokenId, (updatedToken) => {
+      if (!updatedToken) return;
+
+      setActiveToken((prev) => {
+        // Detect if status changed to CALLED
+        if (prev && prev.status !== 'CALLED' && updatedToken.status === 'CALLED') {
+          setNotifications((n) => [
+            {
+              id: `notif-${Date.now()}`,
+              title: 'Your Token Is Called!',
+              message: `Token ${updatedToken.tokenNumber} summoned to ${updatedToken.assignedCounterNumber || 'Counter'}. Please proceed immediately.`,
+              time: 'Just now',
+              type: 'CALLED',
+              isRead: false,
+            },
+            ...n,
+          ]);
+        }
+        return updatedToken;
+      });
+
+      // Update in history as well
+      setTokensHistory((history) =>
+        history.map((t) => (t.tokenId === updatedToken.tokenId ? updatedToken : t))
+      );
+    });
+
+    return () => {
+      unsubToken();
+    };
+  }, [activeToken?.tokenId]);
+
+  const login = async (email: string, pass: string) => {
+    const profile = await loginUser(email, pass);
     setIsAuthenticated(true);
     setUser({
-      name: email.split('@')[0] || 'David Miller',
-      phone: '+1 (555) 301-8842',
-      email,
+      name: profile.displayName,
+      phone: profile.phone,
+      email: profile.email,
+      userId: profile.userId,
     });
     setCurrentScreen('home');
   };
 
-  const logout = () => {
+  const loginAsGuest = async () => {
+    const guest = await loginGuest('Guest Visitor');
+    setIsAuthenticated(true);
+    setUser({
+      name: guest.displayName,
+      email: guest.email,
+      userId: guest.userId,
+    });
+    setCurrentScreen('home');
+  };
+
+  const logout = async () => {
+    await logoutUser();
     setIsAuthenticated(false);
     setUser(null);
+    setActiveToken(null);
     setCurrentScreen('onboarding');
   };
 
-  const bookNewToken = (slotTime: string, priority: TokenPriority = TokenPriority.STANDARD): Token => {
+  const bookNewToken = async (
+    slotTime: string,
+    priority: TokenPriority = TokenPriority.STANDARD
+  ): Promise<Token> => {
     const now = new Date();
     const targetDate = now.toISOString().split('T')[0];
 
-    const arrivalSlot = calculateSmartArrivalSlot({
-      targetDate,
-      targetSlotTime: slotTime,
-      serviceDurationMinutes: selectedService?.estimatedDurationMinutes || 15,
-      currentQueueDepth: 3,
-      activeCountersCount: 2,
-    });
-
-    const waitEst = estimateWaitTime({
-      tokensAheadCount: 3,
-      averageServiceDurationMinutes: selectedService?.estimatedDurationMinutes || 15,
-      activeCountersCount: 2,
-      priority,
-    });
-
-    const num = Math.floor(100 + Math.random() * 900);
-    const prefix = selectedDepartment?.code.split('-')[1] || 'T';
-    const tokenNumber = `${prefix}-${num}`;
-
-    const newToken: Token = {
-      id: `tok-${Date.now()}`,
-      tokenId: `tok-${Date.now()}`,
-      tokenNumber,
+    const newToken = await bookTokenBackend({
       institutionId: selectedInstitution.institutionId,
       branchId: selectedDepartment?.branchId || 'branch-apex-main',
       departmentId: selectedDepartment?.departmentId || 'dep-cardio',
       serviceId: selectedService?.serviceId || 'srv-ecg',
-      visitorId: user?.email || 'guest-user',
-      visitorName: user?.name || 'David Miller',
+      visitorId: user?.userId || 'guest-user',
+      visitorName: user?.name || 'Visitor',
       visitorPhone: user?.phone,
+      visitorEmail: user?.email,
       priority,
-      status: TokenStatus.ISSUED,
-      scheduledSlot: {
-        date: targetDate,
-        startTime: slotTime,
-        endTime: `${parseInt(slotTime.split(':')[0])}:${parseInt(slotTime.split(':')[1]) + 15}`,
-      },
-      smartArrivalSlot: arrivalSlot,
-      estimatedWaitMinutes: waitEst.estimatedWaitMinutes,
-      issuedAt: now.toISOString(),
-      qrCodeValue: `tok-${Date.now()}:${selectedInstitution.institutionId}:${Date.now()}`,
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString(),
-    };
+      targetDate,
+      targetSlotTime: slotTime,
+    });
 
     setActiveToken(newToken);
     setTokensHistory((prev) => [newToken, ...prev]);
 
-    // Push notification
     setNotifications((prev) => [
       {
         id: `notif-${Date.now()}`,
         title: 'New Token Issued',
-        message: `Token ${tokenNumber} generated. Arrive at ${arrivalSlot.recommendedArrivalStart.substring(11, 16)} AM.`,
+        message: `Token ${newToken.tokenNumber} generated. Arrive at ${newToken.scheduledSlot.startTime} AM.`,
         time: 'Just now',
         type: 'CONFIRMATION',
         isRead: false,
@@ -188,11 +244,10 @@ export const MobileProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return newToken;
   };
 
-  const cancelActiveToken = () => {
+  const cancelActiveToken = async () => {
     if (!activeToken) return;
-    const updated = { ...activeToken, status: TokenStatus.CANCELLED };
+    await cancelTokenBackend(activeToken.tokenId, 'Cancelled by visitor via mobile app');
     setActiveToken(null);
-    setTokensHistory((prev) => prev.map((t) => (t.tokenId === activeToken.tokenId ? updated : t)));
   };
 
   const markNotificationAsRead = (id: string) => {
@@ -207,7 +262,9 @@ export const MobileProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         isAuthenticated,
         user,
         login,
+        loginAsGuest,
         logout,
+        institutions,
         selectedInstitution,
         setSelectedInstitution,
         selectedDepartment,

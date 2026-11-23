@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, ScrollView } fr
 import { useMobile } from '../context/MobileContext';
 
 export const OnboardingScreen: React.FC = () => {
-  const { setCurrentScreen } = useMobile();
+  const { setCurrentScreen, loginAsGuest } = useMobile();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -63,7 +63,7 @@ export const OnboardingScreen: React.FC = () => {
           <TouchableOpacity
             style={styles.secondaryButton}
             activeOpacity={0.85}
-            onPress={() => setCurrentScreen('home')}
+            onPress={() => loginAsGuest()}
           >
             <Text style={styles.secondaryButtonText}>Continue as Guest</Text>
           </TouchableOpacity>

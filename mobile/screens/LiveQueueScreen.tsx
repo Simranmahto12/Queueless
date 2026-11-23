@@ -45,8 +45,8 @@ export const LiveQueueScreen: React.FC = () => {
         {
           text: 'Cancel',
           style: 'destructive',
-          onPress: () => {
-            cancelActiveToken();
+          onPress: async () => {
+            await cancelActiveToken();
             setCurrentScreen('home');
           },
         },
