@@ -16,6 +16,8 @@ import {
   GraduationCap,
   Briefcase,
   CheckCircle2,
+  Tv,
+  Cast,
 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { ConnectionStatusBadge } from '../components/ConnectionStatusBadge';
@@ -257,28 +259,41 @@ export const WelcomeView: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6">
             {/* Terminal 1: Lobby TV Display */}
-            <Link
-              to="/display"
-              className="p-5 rounded-2xl bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 hover:border-blue-500/60 transition-all duration-200 group flex flex-col justify-between shadow-sm hover:shadow-md"
-            >
+            <div className="p-5 rounded-2xl bg-slate-800/90 border border-slate-700/80 hover:border-blue-500/60 transition-all duration-200 group flex flex-col justify-between shadow-sm hover:shadow-md">
               <div>
-                <div className="text-xs font-bold font-mono text-blue-400 uppercase tracking-wider mb-1">
-                  Public Board
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold font-mono text-blue-400 uppercase tracking-wider">
+                    Public Board
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/30">
+                    <Tv className="w-3 h-3 text-blue-400" />
+                    <span>TV Connect</span>
+                  </span>
                 </div>
                 <h4 className="text-lg font-bold text-white group-hover:text-blue-300 transition-colors">
                   Lobby TV Display
                 </h4>
                 <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                  Fullscreen wall-mounted display with live queue calls, next in line, and voice announcements.
+                  Fullscreen wall-mounted display with live queue calls, voice chime, and wireless Smart TV casting.
                 </p>
               </div>
-              <div className="mt-5 pt-3 border-t border-slate-700/80">
-                <div className="w-full inline-flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-blue-500/15 text-blue-300 border border-blue-500/30 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-400 text-xs font-semibold transition-all duration-200 shadow-sm">
+              <div className="mt-5 pt-3 border-t border-slate-700/80 space-y-2">
+                <Link
+                  to="/display"
+                  className="w-full inline-flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-blue-500/15 text-blue-300 border border-blue-500/30 hover:bg-blue-600 hover:text-white hover:border-blue-400 text-xs font-semibold transition-all duration-200 shadow-sm"
+                >
                   <span>Launch TV Mode</span>
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </div>
+                </Link>
+                <Link
+                  to="/display?connect=tv"
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700/50 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] font-medium border border-slate-600/60 transition"
+                >
+                  <Cast className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Connect to Television (Cast / HDMI / Smart TV)</span>
+                </Link>
               </div>
-            </Link>
+            </div>
 
             {/* Terminal 2: Walk-In Kiosk */}
             <Link
