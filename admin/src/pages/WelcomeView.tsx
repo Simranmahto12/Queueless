@@ -307,13 +307,13 @@ export const WelcomeView: React.FC = () => {
             {/* Terminal 3: Counter Station */}
             <Link
               to="/admin/login"
-              className="p-5 rounded-2xl bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 hover:border-amber-500/60 transition-all duration-200 group flex flex-col justify-between shadow-sm hover:shadow-md"
+              className="p-5 rounded-2xl bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 hover:border-[#935222]/60 transition-all duration-200 group flex flex-col justify-between shadow-sm hover:shadow-md"
             >
               <div>
-                <div className="text-xs font-bold font-mono text-amber-400 uppercase tracking-wider mb-1">
+                <div className="text-xs font-bold font-mono text-[#d4a373] uppercase tracking-wider mb-1">
                   Desk Station
                 </div>
-                <h4 className="text-lg font-bold text-white group-hover:text-amber-300 transition-colors">
+                <h4 className="text-lg font-bold text-white group-hover:text-[#e2be9b] transition-colors">
                   Counter Focus Mode
                 </h4>
                 <p className="text-xs text-slate-300 mt-1 leading-relaxed">
@@ -321,7 +321,7 @@ export const WelcomeView: React.FC = () => {
                 </p>
               </div>
               <div className="mt-5 pt-3 border-t border-slate-700/80">
-                <div className="w-full inline-flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-amber-500/15 text-amber-300 border border-amber-500/30 group-hover:bg-amber-600 group-hover:text-white group-hover:border-amber-400 text-xs font-semibold transition-all duration-200 shadow-sm">
+                <div className="w-full inline-flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-[#783e15]/25 text-[#e2be9b] border border-[#935222]/40 group-hover:bg-[#783e15] group-hover:text-white group-hover:border-[#a66230] text-xs font-semibold transition-all duration-200 shadow-sm">
                   <span>Staff Sign In</span>
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </div>
