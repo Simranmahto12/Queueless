@@ -34,12 +34,27 @@ let inMemoryCounters: Counter[] = [...MOCK_COUNTERS];
 const tokenSubscribers: Set<(tokens: Token[]) => void> = new Set();
 const counterSubscribers: Set<(counters: Counter[]) => void> = new Set();
 const singleTokenSubscribers: Map<string, Set<(token: Token | null) => void>> = new Map();
+const visitorTokensSubscribers: Map<string, Set<(data: { active: Token | null; history: Token[] }) => void>> = new Map();
 
 function notifyTokenChange() {
   tokenSubscribers.forEach((cb) => cb([...inMemoryTokens]));
   singleTokenSubscribers.forEach((listeners, tokenId) => {
     const found = inMemoryTokens.find((t) => t.tokenId === tokenId) || null;
     listeners.forEach((cb) => cb(found));
+  });
+  visitorTokensSubscribers.forEach((listeners, vId) => {
+    const list = inMemoryTokens.filter((t) => t.visitorId === vId);
+    const active =
+      list.find((t) =>
+        [
+          TokenStatus.ISSUED,
+          TokenStatus.WAITING,
+          TokenStatus.CHECKED_IN,
+          TokenStatus.CALLED,
+          TokenStatus.IN_PROGRESS,
+        ].includes(t.status)
+      ) || null;
+    listeners.forEach((cb) => cb({ active, history: list }));
   });
 }
 
@@ -48,12 +63,83 @@ function notifyCounterChange() {
 }
 
 /**
+ * Updates a token in the in-memory fallback store upon QR check-in.
+ */
+export function updateInMemoryTokenCheckIn(tokenId: string, checkedInAt: string): void {
+  inMemoryTokens = inMemoryTokens.map((t) =>
+    t.tokenId === tokenId
+      ? {
+          ...t,
+          status: TokenStatus.CHECKED_IN,
+          checkedInAt,
+          updatedAt: checkedInAt,
+        }
+      : t
+  );
+  notifyTokenChange();
+}
+
+/**
  * Books a new digital token with smart arrival slot calculation and cryptographic QR reference.
+ * Strictly validates availability and prevents duplicate or conflicting active bookings.
  */
 export async function bookToken(request: CreateTokenRequest): Promise<Token> {
   const { db, isConfigured } = getFirebaseServices();
   const now = new Date();
   const nowISO = now.toISOString();
+
+  // Validate availability parameters
+  if (!request.targetDate || !request.institutionId) {
+    throw new Error('Target date and institution must be specified for booking.');
+  }
+
+  // Prevent duplicate or conflicting active bookings for the same visitor
+  if (request.visitorId) {
+    if (db && isConfigured) {
+      const activeQuery = query(
+        collection(db, 'tokens'),
+        where('visitorId', '==', request.visitorId)
+      );
+      const activeSnaps = await getDocs(activeQuery);
+      const activeTokens = activeSnaps.docs.map((d) => d.data() as Token);
+      const hasDuplicate = activeTokens.some(
+        (t) =>
+          t.scheduledSlot.date === request.targetDate &&
+          (t.departmentId === request.departmentId || t.serviceId === request.serviceId) &&
+          [
+            TokenStatus.ISSUED,
+            TokenStatus.WAITING,
+            TokenStatus.CHECKED_IN,
+            TokenStatus.CALLED,
+            TokenStatus.IN_PROGRESS,
+          ].includes(t.status)
+      );
+      if (hasDuplicate) {
+        throw new Error(
+          'Active booking already exists: You already hold an active queue token for this department today.'
+        );
+      }
+    } else {
+      const hasDuplicate = inMemoryTokens.some(
+        (t) =>
+          t.visitorId === request.visitorId &&
+          t.scheduledSlot.date === request.targetDate &&
+          (t.departmentId === request.departmentId || t.serviceId === request.serviceId) &&
+          [
+            TokenStatus.ISSUED,
+            TokenStatus.WAITING,
+            TokenStatus.CHECKED_IN,
+            TokenStatus.CALLED,
+            TokenStatus.IN_PROGRESS,
+          ].includes(t.status)
+      );
+      if (hasDuplicate) {
+        throw new Error(
+          'Active booking already exists: You already hold an active queue token for this department today.'
+        );
+      }
+    }
+  }
 
   // Smart Arrival Slot & Wait Time Calculation
   const arrivalSlot = calculateSmartArrivalSlot({
@@ -72,8 +158,12 @@ export async function bookToken(request: CreateTokenRequest): Promise<Token> {
   });
 
   const tokenId = `tok-${Date.now()}`;
+  // Unique departmental / service token format (e.g. T-CARD-105 or T-105)
+  const deptCode = request.departmentId
+    ? request.departmentId.replace('dep-', '').substring(0, 4).toUpperCase()
+    : 'Q';
   const tokenNum = Math.floor(100 + Math.random() * 900);
-  const tokenNumber = `T-${tokenNum}`;
+  const tokenNumber = request.departmentId ? `T-${deptCode}-${tokenNum}` : `T-${tokenNum}`;
 
   const qrPayload = encodeQRPayload({
     tokenId,
@@ -138,6 +228,89 @@ export async function bookToken(request: CreateTokenRequest): Promise<Token> {
   inMemoryTokens = [newToken, ...inMemoryTokens];
   notifyTokenChange();
   return newToken;
+}
+
+/**
+ * Real-time listener for a visitor's active token and full booking history.
+ * Ensures immediate retrieval on app reopen, strict user isolation,
+ * and seamless real-time synchronization whenever the admin alters status.
+ */
+export function listenVisitorTokens(
+  visitorId: string,
+  callback: (data: { active: Token | null; history: Token[] }) => void
+): () => void {
+  const { db, isConfigured } = getFirebaseServices();
+
+  if (db && isConfigured) {
+    const q = query(
+      collection(db, 'tokens'),
+      where('visitorId', '==', visitorId)
+    );
+
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const tokens = snapshot.docs
+          .map((d) => d.data() as Token)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        const active =
+          tokens.find((t) =>
+            [
+              TokenStatus.ISSUED,
+              TokenStatus.WAITING,
+              TokenStatus.CHECKED_IN,
+              TokenStatus.CALLED,
+              TokenStatus.IN_PROGRESS,
+            ].includes(t.status)
+          ) || null;
+
+        callback({ active, history: tokens });
+      },
+      (err) => {
+        console.warn('[QueueLess TokenService] Error listening to visitor tokens:', err);
+        const list = inMemoryTokens.filter((t) => t.visitorId === visitorId);
+        const active =
+          list.find((t) =>
+            [
+              TokenStatus.ISSUED,
+              TokenStatus.WAITING,
+              TokenStatus.CHECKED_IN,
+              TokenStatus.CALLED,
+              TokenStatus.IN_PROGRESS,
+            ].includes(t.status)
+          ) || null;
+        callback({ active, history: list });
+      }
+    );
+  }
+
+  // Fallback In-Memory Subscription
+  if (!visitorTokensSubscribers.has(visitorId)) {
+    visitorTokensSubscribers.set(visitorId, new Set());
+  }
+  visitorTokensSubscribers.get(visitorId)!.add(callback);
+
+  const list = inMemoryTokens.filter((t) => t.visitorId === visitorId);
+  const active =
+    list.find((t) =>
+      [
+        TokenStatus.ISSUED,
+        TokenStatus.WAITING,
+        TokenStatus.CHECKED_IN,
+        TokenStatus.CALLED,
+        TokenStatus.IN_PROGRESS,
+      ].includes(t.status)
+    ) || null;
+  callback({ active, history: list });
+
+  return () => {
+    const set = visitorTokensSubscribers.get(visitorId);
+    if (set) {
+      set.delete(callback);
+      if (set.size === 0) visitorTokensSubscribers.delete(visitorId);
+    }
+  };
 }
 
 /**
@@ -249,7 +422,7 @@ export async function callNextToken(params: {
       const tokenQuery = query(
         collection(db, 'tokens'),
         where('institutionId', '==', params.institutionId),
-        where('status', 'in', [TokenStatus.CHECKED_IN, TokenStatus.WAITING])
+        where('status', 'in', [TokenStatus.CHECKED_IN, TokenStatus.WAITING, TokenStatus.ISSUED])
       );
       const tokenSnaps = await getDocs(tokenQuery);
       let waitingTokens = tokenSnaps.docs.map((d) => d.data() as Token);
@@ -302,7 +475,9 @@ export async function callNextToken(params: {
 
   const eligible = inMemoryTokens.filter(
     (t) =>
-      (t.status === TokenStatus.CHECKED_IN || t.status === TokenStatus.WAITING) &&
+      (t.status === TokenStatus.CHECKED_IN ||
+        t.status === TokenStatus.WAITING ||
+        t.status === TokenStatus.ISSUED) &&
       counter.supportedServiceIds.includes(t.serviceId)
   );
 
@@ -402,7 +577,7 @@ export async function markTokenServed(tokenId: string, counterId?: string): Prom
 /**
  * Skips an absent token (No-Show) and frees the counter.
  */
-export async function skipToken(tokenId: string, counterId?: string): Promise<void> {
+export async function skipToken(tokenId: string, counterId?: string, reason?: string): Promise<void> {
   const { db, isConfigured } = getFirebaseServices();
   const now = new Date().toISOString();
 
@@ -411,6 +586,7 @@ export async function skipToken(tokenId: string, counterId?: string): Promise<vo
       const tokenRef = doc(db, 'tokens', tokenId);
       transaction.update(tokenRef, {
         status: TokenStatus.NO_SHOW,
+        notes: reason || 'Skipped by staff',
         updatedAt: now,
       });
 
@@ -431,6 +607,7 @@ export async function skipToken(tokenId: string, counterId?: string): Promise<vo
       ? {
           ...t,
           status: TokenStatus.NO_SHOW,
+          notes: reason || t.notes,
           updatedAt: now,
         }
       : t
@@ -451,6 +628,81 @@ export async function skipToken(tokenId: string, counterId?: string): Promise<vo
   }
 
   notifyTokenChange();
+}
+
+/**
+ * 5-Second Undo operation: restores a token to its previous valid state if
+ * a conflicting subsequent operation has not occurred.
+ */
+export async function undoTokenAction(
+  tokenId: string,
+  previousStatus: TokenStatus,
+  counterId?: string,
+  performedByUserId?: string
+): Promise<{ success: boolean; message: string }> {
+  const { db, isConfigured } = getFirebaseServices();
+  const now = new Date().toISOString();
+
+  // Validate state in memory or DB
+  const existing = inMemoryTokens.find((t) => t.tokenId === tokenId);
+  if (existing && existing.status === TokenStatus.COMPLETED) {
+    throw new Error('Action cannot be undone: Token has already been marked completed.');
+  }
+
+  if (db && isConfigured) {
+    await runTransaction(db, async (transaction) => {
+      const tokenRef = doc(db, 'tokens', tokenId);
+      const snapshot = await transaction.get(tokenRef);
+      if (!snapshot.exists()) throw new Error('Token not found.');
+      const data = snapshot.data() as Token;
+      if (data.status === TokenStatus.COMPLETED) {
+        throw new Error('Action cannot be undone: Token has already been marked completed.');
+      }
+
+      transaction.update(tokenRef, {
+        status: previousStatus,
+        updatedAt: now,
+      });
+
+      if (counterId) {
+        const counterRef = doc(db, 'counters', counterId);
+        transaction.update(counterRef, {
+          status: CounterStatus.BUSY,
+          currentServedTokenId: tokenId,
+          updatedAt: now,
+        });
+      }
+    });
+
+    return { success: true, message: `Token action undone. Status restored to ${previousStatus}.` };
+  }
+
+  inMemoryTokens = inMemoryTokens.map((t) =>
+    t.tokenId === tokenId
+      ? {
+          ...t,
+          status: previousStatus,
+          updatedAt: now,
+        }
+      : t
+  );
+
+  if (counterId) {
+    inMemoryCounters = inMemoryCounters.map((c) =>
+      c.counterId === counterId
+        ? {
+            ...c,
+            status: CounterStatus.BUSY,
+            currentServedTokenId: tokenId,
+            updatedAt: now,
+          }
+        : c
+    );
+    notifyCounterChange();
+  }
+
+  notifyTokenChange();
+  return { success: true, message: `Token action undone. Status restored to ${previousStatus}.` };
 }
 
 /**

@@ -11,11 +11,14 @@ import {
   AlertTriangle,
   Settings,
   LogOut,
+  PhoneCall,
 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
+import { UserRole } from '@queueless/shared';
 
 export type AdminTab =
   | 'overview'
+  | 'counter-station'
   | 'queue'
   | 'crowd'
   | 'departments'
@@ -39,8 +42,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
     (t) => t.status === 'WAITING' || t.status === 'CHECKED_IN'
   ).length;
 
-  const navItems: { id: AdminTab; label: string; icon: React.ReactNode; badge?: number }[] = [
+  const allNavItems: { id: AdminTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
+    {
+      id: 'counter-station',
+      label: 'Counter Station',
+      icon: <PhoneCall className="w-4 h-4 text-emerald-600" />,
+    },
     {
       id: 'queue',
       label: 'Live Queue',
@@ -61,6 +69,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
     },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> },
   ];
+
+  // Role-based navigation filtering:
+  // COUNTER_STAFF only see Counter Station and Live Queue; no analytics, no staff provisioning, no settings
+  const navItems =
+    currentUser?.role === UserRole.COUNTER_STAFF
+      ? allNavItems.filter((item) => ['counter-station', 'queue'].includes(item.id))
+      : allNavItems;
 
   // User initials
   const initials = currentUser?.displayName

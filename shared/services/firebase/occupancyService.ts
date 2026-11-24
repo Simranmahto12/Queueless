@@ -28,6 +28,7 @@ import {
 import { decodeAndValidateQRPayload } from '../qrService';
 import { calculateZoneOccupancy } from '../../algorithms/occupancyCalculator';
 import { MOCK_ZONES, MOCK_ALERTS } from '../mockData';
+import { updateInMemoryTokenCheckIn } from './tokenService';
 
 // Fallback in-memory state
 let inMemoryZones: Zone[] = [...MOCK_ZONES];
@@ -228,6 +229,7 @@ export async function checkInVisitorWithQR(params: {
     updatedAt: now,
   };
   inMemoryCheckIns.push(newCheckIn);
+  updateInMemoryTokenCheckIn(tokenId, now);
 
   inMemoryZones = inMemoryZones.map((z) =>
     z.zoneId === targetZoneId

@@ -8,3 +8,4 @@ export * from './tokenService';
 export * from './occupancyService';
 export * from './institutionService';
 export * from './seedService';
+export * from './notificationService';

@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
 import { useMobile } from '../context/MobileContext';
 import { MOCK_DEPARTMENTS, MOCK_SERVICES } from '@queueless/shared';
@@ -38,10 +39,20 @@ export const ServiceSelectionScreen: React.FC = () => {
     { time: '11:00', estWait: '20 mins', recommended: false },
   ];
   const [selectedSlot, setSelectedSlot] = useState(availableSlots[0].time);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleConfirm = async () => {
-    await bookNewToken(selectedSlot);
-    setCurrentScreen('booking_confirmation');
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      await bookNewToken(selectedSlot);
+      setCurrentScreen('booking_confirmation');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unable to confirm token.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -56,6 +67,12 @@ export const ServiceSelectionScreen: React.FC = () => {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        {error && (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+
         {/* Step 1: Department Selection */}
         <View style={styles.stepSection}>
           <Text style={styles.stepLabel}>1. SELECT DEPARTMENT</Text>
@@ -143,8 +160,17 @@ export const ServiceSelectionScreen: React.FC = () => {
           <Text style={styles.footerLabel}>Slot: {selectedSlot} Today</Text>
           <Text style={styles.footerValue}>{activeService?.name || 'General'}</Text>
         </View>
-        <TouchableOpacity style={styles.confirmButton} activeOpacity={0.85} onPress={handleConfirm}>
-          <Text style={styles.confirmButtonText}>Issue Digital Token →</Text>
+        <TouchableOpacity
+          style={[styles.confirmButton, isSubmitting && { opacity: 0.6 }]}
+          activeOpacity={0.85}
+          disabled={isSubmitting}
+          onPress={handleConfirm}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <Text style={styles.confirmButtonText}>Issue Digital Token →</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -182,6 +208,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     marginTop: 2,
+  },
+  errorBanner: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: '#DC4C4C',
+    fontSize: 12,
+    fontWeight: '600',
   },
   content: {
     padding: 20,

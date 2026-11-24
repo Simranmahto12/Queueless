@@ -53,7 +53,7 @@ test('QueueLess Authentication & RBAC Suite', async (t) => {
           requireAdminOrStaff: true,
         });
       },
-      /Access Denied: Visitor accounts are not authorized/
+      /This account is registered as a visitor/
     );
   });
 
@@ -64,7 +64,7 @@ test('QueueLess Authentication & RBAC Suite', async (t) => {
           requireAdminOrStaff: true,
         });
       },
-      /Access Denied/
+      /This account is registered as a visitor/
     );
   });
 

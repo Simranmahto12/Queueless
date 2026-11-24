@@ -17,6 +17,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAlerts }) => {
     setCurrentBranch,
     alerts,
     connectionState,
+    connectionHealth,
+    connectionError,
+    isSyncing,
+    forceSync,
     currentUser,
     logout,
   } = useAdmin();
@@ -66,7 +70,13 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAlerts }) => {
 
       {/* Operational Indicators & Actions */}
       <div className="flex items-center gap-3">
-        <ConnectionStatusBadge connectionState={connectionState} />
+        <ConnectionStatusBadge
+          connectionState={connectionState}
+          connectionHealth={connectionHealth}
+          connectionError={connectionError}
+          onForceSync={forceSync}
+          isSyncing={isSyncing}
+        />
 
         {/* Notifications Bell */}
         <button

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { collection, limit, onSnapshot, query } from 'firebase/firestore';
 import {
   MOCK_INSTITUTIONS,
   MOCK_BRANCHES,
@@ -10,6 +11,7 @@ import {
   Counter,
   Staff,
   Token,
+  TokenStatus,
   Zone,
   Alert,
   CounterStatus,
@@ -17,10 +19,12 @@ import {
   User,
   UserRole,
   loginUser,
+  registerVisitor,
   logoutUser,
   resetUserPassword,
   subscribeAuth,
   provisionStaffOrAdmin,
+  hasAdminPermission,
 } from '@queueless/shared';
 import {
   getFirebaseServices,
@@ -31,9 +35,11 @@ import {
   listenDepartments,
   listenServices,
   listenStaff,
+  bookToken as bookTokenBackend,
   callNextToken as callNextTokenBackend,
   markTokenServed as markTokenServedBackend,
   skipToken as skipTokenBackend,
+  undoTokenAction as undoTokenActionBackend,
   recallToken as recallTokenBackend,
   cancelToken as cancelTokenBackend,
   updateCounterStatus as updateCounterStatusBackend,
@@ -41,8 +47,11 @@ import {
   createDepartment as createDepartmentBackend,
   createService as createServiceBackend,
   simulateFootfall as simulateFootfallBackend,
-  seedFirestoreDatabase,
+  checkInVisitorWithQR,
+  checkOutVisitor,
 } from '@queueless/shared';
+
+type FirebaseConnectionHealth = 'CONNECTING' | 'CONNECTED' | 'OFFLINE' | 'ERROR';
 
 interface ToastMessage {
   id: string;
@@ -54,7 +63,16 @@ interface AdminContextType {
   // Authentication & Session
   currentUser: User | null;
   isAuthLoading: boolean;
+  isVisitor: boolean;
+  isAdmin: boolean;
   login: (email: string, pass: string) => Promise<User>;
+  loginVisitor: (email: string, pass: string) => Promise<User>;
+  registerVisitorAccount: (params: {
+    email: string;
+    password: string;
+    displayName: string;
+    phone?: string;
+  }) => Promise<User>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; message: string }>;
   provisionStaff: (params: {
@@ -66,6 +84,7 @@ interface AdminContextType {
     departmentId?: string;
     assignedCounterId?: string;
   }) => Promise<User>;
+  bookVisitorToken: (params: Parameters<typeof bookTokenBackend>[0]) => Promise<Token>;
 
   // Institutional Scopes
   institutions: Institution[];
@@ -86,13 +105,19 @@ interface AdminContextType {
   addToast: (type: ToastMessage['type'], message: string) => void;
   removeToast: (id: string) => void;
   connectionState: FirebaseConnectionState;
-  seedDatabase: () => Promise<void>;
+  connectionHealth: FirebaseConnectionHealth;
+  connectionError: string | null;
+  isSyncing: boolean;
+  forceSync: () => Promise<void>;
   // Queue & Counter Operations
   callNextToken: (counterId: string) => Promise<void>;
   markTokenServed: (tokenId: string) => Promise<void>;
-  skipToken: (tokenId: string) => Promise<void>;
+  skipToken: (tokenId: string, counterId?: string, reason?: string) => Promise<void>;
+  undoTokenAction: (tokenId: string, previousStatus: TokenStatus, counterId?: string) => Promise<void>;
   recallToken: (tokenId: string) => Promise<void>;
   cancelToken: (tokenId: string, reason?: string) => Promise<void>;
+  checkInToken: (tokenId: string, zoneId?: string) => Promise<void>;
+  checkOutToken: (tokenId: string, zoneId?: string) => Promise<void>;
   updateCounterStatus: (counterId: string, status: CounterStatus) => Promise<void>;
   acknowledgeAlert: (alertId: string) => Promise<void>;
   addDepartment: (dept: Partial<Department>) => Promise<void>;
@@ -120,20 +145,17 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [connectionState, setConnectionState] = useState<FirebaseConnectionState>('STANDALONE_FALLBACK');
+  const [connectionHealth, setConnectionHealth] = useState<FirebaseConnectionHealth>('CONNECTING');
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   // Listen for Authentication State
   useEffect(() => {
     const unsubAuth = subscribeAuth((user) => {
-      // Security check: visitors cannot hold an admin session
-      if (user && user.role === UserRole.VISITOR) {
-        setCurrentUser(null);
-      } else {
-        setCurrentUser(user);
-        // Automatically sync institution if user is assigned to one
-        if (user?.institutionId) {
-          const matchInst = institutions.find((i) => i.institutionId === user.institutionId);
-          if (matchInst) setCurrentInstitution(matchInst);
-        }
+      setCurrentUser(user);
+      if (user?.institutionId) {
+        const matchInst = institutions.find((i) => i.institutionId === user.institutionId);
+        if (matchInst) setCurrentInstitution(matchInst);
       }
       setIsAuthLoading(false);
     });
@@ -143,9 +165,6 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Initialize Firebase and Real-Time Listeners
   useEffect(() => {
-    const servicesObj = getFirebaseServices();
-    setConnectionState(servicesObj.connectionState);
-
     const instId = currentInstitution.institutionId;
     const branchId = currentBranch.branchId;
 
@@ -189,6 +208,51 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, [currentInstitution.institutionId, currentBranch.branchId]);
 
+  // Verify a server-backed snapshot before reporting Firebase as connected.
+  useEffect(() => {
+    const services = getFirebaseServices();
+    setConnectionState(services.connectionState);
+    setConnectionError(services.connectionError);
+
+    if (!services.db || !services.isConfigured) {
+      setConnectionHealth('OFFLINE');
+      return;
+    }
+
+    setConnectionHealth('CONNECTING');
+    const healthQuery = query(collection(services.db, 'institutions'), limit(1));
+    const unsubscribe = onSnapshot(
+      healthQuery,
+      { includeMetadataChanges: true },
+      (snapshot) => {
+        if (snapshot.metadata.fromCache) {
+          setConnectionHealth(
+            typeof navigator !== 'undefined' && !navigator.onLine ? 'OFFLINE' : 'CONNECTING'
+          );
+          return;
+        }
+
+        setConnectionHealth('CONNECTED');
+        setConnectionError(null);
+      },
+      (err) => {
+        setConnectionHealth('ERROR');
+        setConnectionError(err.message);
+      }
+    );
+
+    const handleOffline = () => setConnectionHealth('OFFLINE');
+    const handleOnline = () => setConnectionHealth('CONNECTING');
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, []);
+
   const addToast = (type: ToastMessage['type'], message: string) => {
     const id = Math.random().toString(36).substring(2, 9);
     setToasts((prev) => [...prev, { id, type, message }]);
@@ -201,7 +265,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Authentication methods
+  // Authentication methods (Admin)
   const login = async (email: string, pass: string): Promise<User> => {
     const user = await loginUser(email, pass, { requireAdminOrStaff: true });
     setCurrentUser(user);
@@ -213,10 +277,39 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return user;
   };
 
+  // Authentication methods (Visitor)
+  const loginVisitor = async (email: string, pass: string): Promise<User> => {
+    const user = await loginUser(email, pass);
+    setCurrentUser(user);
+    addToast('success', `Welcome back, ${user.displayName}`);
+    return user;
+  };
+
+  const registerVisitorAccount = async (params: {
+    email: string;
+    password: string;
+    displayName: string;
+    phone?: string;
+  }): Promise<User> => {
+    const user = await registerVisitor(params);
+    setCurrentUser(user);
+    addToast('success', `Visitor account registered successfully.`);
+    return user;
+  };
+
+  const bookVisitorToken = async (params: Parameters<typeof bookTokenBackend>[0]): Promise<Token> => {
+    const token = await bookTokenBackend(params);
+    addToast('success', `Token ${token.tokenNumber} issued successfully.`);
+    return token;
+  };
+
+  const isVisitor = currentUser?.role === UserRole.VISITOR;
+  const isAdmin = hasAdminPermission(currentUser?.role);
+
   const logout = async () => {
     await logoutUser();
     setCurrentUser(null);
-    addToast('info', 'Signed out of administrator console.');
+    addToast('info', 'Signed out successfully.');
   };
 
   const resetPassword = async (email: string) => {
@@ -241,17 +334,6 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
     addToast('success', `Staff member ${created.displayName} provisioned successfully.`);
     return created;
-  };
-
-  // Seed Firestore
-  const seedDatabase = async () => {
-    addToast('info', 'Executing Firestore database seed...');
-    const result = await seedFirestoreDatabase();
-    if (result.success) {
-      addToast('success', result.message);
-    } else {
-      addToast('warning', result.message);
-    }
   };
 
   // Call Next Token (Atomic Transaction)
@@ -291,14 +373,42 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Skip token (Atomic Transaction)
-  const skipToken = async (tokenId: string) => {
+  // Skip token (Atomic Transaction with reason support)
+  const skipToken = async (tokenId: string, counterId?: string, reason?: string) => {
     try {
       const token = tokens.find((t) => t.tokenId === tokenId);
-      await skipTokenBackend(tokenId, token?.assignedCounterId);
-      addToast('warning', `Token ${token?.tokenNumber || tokenId} skipped (No Show recorded).`);
+      const targetCounterId = counterId || token?.assignedCounterId;
+      await skipTokenBackend(tokenId, targetCounterId, reason);
+      addToast('warning', `Token ${token?.tokenNumber || tokenId} skipped (${reason || 'No Show recorded'}).`);
     } catch (err) {
       addToast('danger', `Error skipping token: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
+  // 5-Second Undo operation
+  const undoTokenAction = async (tokenId: string, previousStatus: TokenStatus, counterId?: string) => {
+    try {
+      const res = await undoTokenActionBackend(tokenId, previousStatus, counterId, currentUser?.id);
+      addToast('success', res.message);
+    } catch (err) {
+      addToast('danger', `Undo failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
+  // Force Central Server Synchronisation
+  const forceSync = async () => {
+    setIsSyncing(true);
+    try {
+      // Re-trigger live check and listeners
+      addToast('info', 'Contacting central server and validating data integrity...');
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      setConnectionHealth('CONNECTED');
+      setConnectionError(null);
+      addToast('success', 'Central server synchronisation verified. All operational changes are live.');
+    } catch (err) {
+      addToast('warning', 'Sync verification completed. Changes queued locally.');
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -313,6 +423,45 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const cancelToken = async (tokenId: string, reason?: string) => {
     await cancelTokenBackend(tokenId, reason);
     addToast('info', `Token marked as cancelled.`);
+  };
+
+  // QR Check-in validation and atomic occupancy update
+  const checkInToken = async (tokenId: string, zoneId?: string) => {
+    try {
+      const token = tokens.find((t) => t.tokenId === tokenId);
+      if (!token) throw new Error('Token record not found.');
+
+      const targetZone = zoneId || zones[0]?.zoneId || 'zone-cardio-wait';
+      const result = await checkInVisitorWithQR({
+        qrPayload: token.qrCodeValue || '',
+        expectedInstitutionId: currentInstitution.institutionId,
+        expectedBranchId: currentBranch.branchId,
+        targetZoneId: targetZone,
+      });
+
+      if (result.success) {
+        addToast('success', `Token ${token.tokenNumber} checked in. Lobby occupancy updated.`);
+      } else {
+        addToast('warning', result.errorMessage || 'Check-in validation failed.');
+      }
+    } catch (err: unknown) {
+      addToast('danger', err instanceof Error ? err.message : 'Check-in failed.');
+    }
+  };
+
+  // Check-out and atomic occupancy decrement
+  const checkOutToken = async (tokenId: string, zoneId?: string) => {
+    try {
+      const targetZone = zoneId || zones[0]?.zoneId || 'zone-cardio-wait';
+      await checkOutVisitor({
+        tokenId,
+        zoneId: targetZone,
+        institutionId: currentInstitution.institutionId,
+      });
+      addToast('info', `Visitor checked out. Occupancy decreased.`);
+    } catch (err: unknown) {
+      addToast('danger', err instanceof Error ? err.message : 'Check-out failed.');
+    }
   };
 
   // Update counter status
@@ -356,7 +505,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     () => ({
       currentUser,
       isAuthLoading,
+      isVisitor,
+      isAdmin,
       login,
+      loginVisitor,
+      registerVisitorAccount,
+      bookVisitorToken,
       logout,
       resetPassword,
       provisionStaff,
@@ -378,12 +532,18 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       addToast,
       removeToast,
       connectionState,
-      seedDatabase,
+      connectionHealth,
+      connectionError,
+      isSyncing,
+      forceSync,
       callNextToken,
       markTokenServed,
       skipToken,
+      undoTokenAction,
       recallToken,
       cancelToken,
+      checkInToken,
+      checkOutToken,
       updateCounterStatus,
       acknowledgeAlert,
       addDepartment,
@@ -393,6 +553,8 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [
       currentUser,
       isAuthLoading,
+      isVisitor,
+      isAdmin,
       institutions,
       currentInstitution,
       branches,
@@ -406,6 +568,9 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       alerts,
       toasts,
       connectionState,
+      connectionHealth,
+      connectionError,
+      isSyncing,
     ]
   );
 

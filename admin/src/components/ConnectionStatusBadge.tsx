@@ -1,103 +1,79 @@
-import React, { useEffect, useState } from 'react';
-import { collection, limit, onSnapshot, query } from 'firebase/firestore';
-import { getFirebaseServices, type FirebaseConnectionState } from '@queueless/shared';
+import React from 'react';
+import { RefreshCw, CheckCircle2, AlertTriangle, WifiOff, Loader2 } from 'lucide-react';
+import type { FirebaseConnectionState } from '@queueless/shared';
 
-type FirebaseConnectionHealth = 'CONNECTING' | 'CONNECTED' | 'OFFLINE' | 'ERROR';
+export type FirebaseConnectionHealth = 'CONNECTING' | 'CONNECTED' | 'OFFLINE' | 'ERROR';
 
 interface ConnectionStatusBadgeProps {
   connectionState: FirebaseConnectionState;
+  connectionHealth: FirebaseConnectionHealth;
+  connectionError: string | null;
+  onForceSync?: () => Promise<void> | void;
+  isSyncing?: boolean;
 }
 
 export const ConnectionStatusBadge: React.FC<ConnectionStatusBadgeProps> = ({
   connectionState,
+  connectionHealth,
+  connectionError,
+  onForceSync,
+  isSyncing = false,
 }) => {
-  const [health, setHealth] = useState<FirebaseConnectionHealth>('CONNECTING');
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const services = getFirebaseServices();
-    setError(services.connectionError);
-
-    if (!services.db || !services.isConfigured) {
-      setHealth('OFFLINE');
-      return;
-    }
-
-    setHealth('CONNECTING');
-    const healthQuery = query(collection(services.db, 'institutions'), limit(1));
-    const unsubscribe = onSnapshot(
-      healthQuery,
-      { includeMetadataChanges: true },
-      (snapshot) => {
-        if (snapshot.metadata.fromCache) {
-          setHealth(typeof navigator !== 'undefined' && !navigator.onLine ? 'OFFLINE' : 'CONNECTING');
-          return;
-        }
-
-        setHealth('CONNECTED');
-        setError(null);
-      },
-      (connectionError) => {
-        setHealth('ERROR');
-        setError(connectionError.message);
-      }
-    );
-
-    const handleOffline = () => setHealth('OFFLINE');
-    const handleOnline = () => setHealth('CONNECTING');
-    window.addEventListener('offline', handleOffline);
-    window.addEventListener('online', handleOnline);
-
-    return () => {
-      unsubscribe();
-      window.removeEventListener('offline', handleOffline);
-      window.removeEventListener('online', handleOnline);
-    };
-  }, []);
-
-  const healthLabel = {
-    CONNECTING: 'connecting',
-    CONNECTED: 'connected',
-    OFFLINE: 'offline',
-    ERROR: 'connection error',
-  }[health];
-
-  if (connectionState === 'STANDALONE_FALLBACK') {
-    return (
-      <div
-        title={`${error || 'Firebase is not configured.'} Using local in-memory data; changes are not persisted to Firebase.`}
-        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200 cursor-help"
-      >
-        <span className="w-2 h-2 rounded-full bg-amber-500" />
-        <span>Local fallback</span>
-      </div>
-    );
-  }
-
-  const isConnected = health === 'CONNECTED';
-  const isError = health === 'ERROR';
-  const badgeClass = isConnected
-    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-    : isError
-      ? 'bg-red-50 text-red-700 border-red-200'
-      : 'bg-amber-50 text-amber-800 border-amber-200';
-  const dotClass = isConnected
-    ? 'bg-emerald-500 animate-pulse'
-    : isError
-      ? 'bg-red-500'
-      : 'bg-amber-500';
-  const label = connectionState === 'LOCAL_EMULATOR' ? 'Firebase Emulator' : 'Cloud Firestore';
-  const title =
-    error ||
-    `${connectionState === 'LOCAL_EMULATOR' ? 'Development Firebase Emulator' : 'Cloud Firestore'} ${healthLabel}.`;
+  // Determine plain English display state
+  const isConnected = connectionHealth === 'CONNECTED';
+  const isOffline = connectionHealth === 'OFFLINE' || connectionState === 'STANDALONE_FALLBACK';
+  const isReconnecting = connectionHealth === 'CONNECTING';
+  const isError = connectionHealth === 'ERROR';
 
   return (
-    <div
-      title={title}
-      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${badgeClass}`}
-    >
-      <span className={`w-2 h-2 rounded-full ${dotClass}`} />
-      <span>{label} {healthLabel}</span>
+    <div className="flex items-center gap-2">
+      {/* Plain English Status Pill */}
+      {isConnected ? (
+        <div
+          title="Direct secure connection established with central database."
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-xs"
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span>Connected to Central Server</span>
+        </div>
+      ) : isReconnecting ? (
+        <div
+          title="Attempting to re-establish secure connection with central server..."
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-blue-50 text-blue-800 border border-blue-300 shadow-xs animate-pulse"
+        >
+          <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
+          <span>Reconnecting...</span>
+        </div>
+      ) : isError ? (
+        <div
+          title={connectionError || 'Connection error. Please inspect network.'}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-rose-50 text-rose-800 border border-rose-300 shadow-xs"
+        >
+          <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+          <span>Connection Problem — Check Network</span>
+        </div>
+      ) : (
+        <div
+          title="Operating in protected local mode. Changes will be synced to central server automatically."
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 shadow-xs"
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+          <span>Offline Mode — Changes Pending Sync</span>
+        </div>
+      )}
+
+      {/* Force Sync Action Button */}
+      {onForceSync && (
+        <button
+          onClick={() => onForceSync()}
+          disabled={isSyncing}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-borderSoft transition shadow-xs disabled:opacity-50"
+          title="Force immediate check and push pending changes to central server"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-primary' : 'text-slate-600'}`} />
+          <span>{isSyncing ? 'Syncing...' : 'Force Sync'}</span>
+        </button>
+      )}
     </div>
   );
 };

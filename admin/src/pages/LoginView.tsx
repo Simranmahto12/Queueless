@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Mail,
   Lock,
@@ -13,6 +14,7 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
+  Ticket,
 } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { getDemoAccountsForDev } from '@queueless/shared';
@@ -110,11 +112,37 @@ export const LoginView: React.FC = () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-6 shadow-sm border border-borderSoft rounded-2xl sm:px-10">
-          {/* Main Error Alert */}
+          {/* Main Error or Visitor Alert Banner */}
           {errorMessage && (
-            <div className="mb-6 p-3.5 rounded-xl bg-red-50 border border-red-200 flex items-start gap-2.5 text-xs text-red-700 animate-fadeIn">
-              <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-              <div className="flex-1 font-medium leading-relaxed">{errorMessage}</div>
+            <div
+              className={`mb-6 p-4 rounded-xl flex items-start gap-3 text-xs animate-fadeIn ${
+                errorMessage.includes('visitor')
+                  ? 'bg-blue-50/90 border border-blue-200 text-blue-900'
+                  : 'bg-red-50 border border-red-200 text-red-700'
+              }`}
+            >
+              {errorMessage.includes('visitor') ? (
+                <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+              )}
+              <div className="flex-1">
+                <div className="font-semibold leading-relaxed">{errorMessage}</div>
+                {errorMessage.includes('visitor') && (
+                  <div className="mt-2 text-[11px] text-blue-700 leading-normal space-y-2">
+                    <p>
+                      The Admin Portal is reserved for institutional operations and staff triage.
+                    </p>
+                    <Link
+                      to="/visitor/login"
+                      className="inline-flex items-center gap-1.5 font-bold text-primary hover:underline bg-white px-2.5 py-1 rounded-md border border-blue-200"
+                    >
+                      <Ticket className="w-3.5 h-3.5" />
+                      <span>Switch to Visitor Portal &rarr;</span>
+                    </Link>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -347,6 +375,21 @@ export const LoginView: React.FC = () => {
             )}
             </div>
           )}
+        </div>
+
+        {/* Navigation Switchers */}
+        <div className="mt-6 flex flex-col items-center gap-2 text-xs text-textMuted">
+          <div>
+            <span>Are you a visitor booking a token? </span>
+            <Link to="/visitor/login" className="text-primary font-semibold hover:underline">
+              Enter Visitor Portal
+            </Link>
+          </div>
+          <div>
+            <Link to="/" className="text-textMuted hover:text-textMain transition-colors">
+              &larr; Back to QueueLess Welcome Page
+            </Link>
+          </div>
         </div>
       </div>
     </div>

@@ -32,9 +32,14 @@ export const LiveQueueScreen: React.FC = () => {
     );
   }
 
-  // Live Position Calculation Mock
-  const currentServingToken = 'CARD-101';
-  const peopleAhead = 1;
+  // Dynamic Live Position Calculation
+  const isCalled = activeToken.status === 'CALLED';
+  const isInService = activeToken.status === 'IN_PROGRESS';
+  const isCheckedIn = activeToken.status === 'CHECKED_IN';
+  const isCompleted = activeToken.status === 'COMPLETED';
+
+  const currentServingToken = isCalled || isInService ? activeToken.tokenNumber : 'Serving Queue';
+  const peopleAhead = isCalled || isInService ? 0 : isCheckedIn ? 1 : 2;
 
   const handleCancel = () => {
     RNAlert.alert(
@@ -64,13 +69,25 @@ export const LiveQueueScreen: React.FC = () => {
         </View>
 
         {/* Big Live Position Monitor */}
-        <View style={styles.monitorCard}>
+        <View style={[styles.monitorCard, isCalled && { borderColor: '#16A36A', borderWidth: 2 }]}>
           <View style={styles.monitorHeader}>
-            <View style={styles.pulseDot} />
-            <Text style={styles.monitorTag}>NOW SERVING AT COUNTER 01</Text>
+            <View style={[styles.pulseDot, isCalled && { backgroundColor: '#16A36A' }]} />
+            <Text style={[styles.monitorTag, isCalled && { color: '#16A36A' }]}>
+              {isCalled
+                ? `NOW SERVING: PROCEED TO ${activeToken.assignedCounterNumber || 'COUNTER 01'}`
+                : isCheckedIn
+                ? 'CHECKED IN • WAITING IN LOUNGE'
+                : 'SCHEDULED ARRIVAL WINDOW'}
+            </Text>
           </View>
-          <Text style={styles.servingTokenLarge}>{currentServingToken}</Text>
-          <Text style={styles.servingDeskNote}>Phlebotomist / Physician actively consulting</Text>
+          <Text style={[styles.servingTokenLarge, isCalled && { color: '#16A36A' }]}>
+            {currentServingToken}
+          </Text>
+          <Text style={styles.servingDeskNote}>
+            {isCalled
+              ? `Please approach ${activeToken.assignedCounterNumber || 'Desk'} with your token QR pass`
+              : 'Station staff actively consulting queued visitors'}
+          </Text>
 
           {/* Your Token Callout */}
           <View style={styles.yourTokenBox}>
@@ -78,9 +95,13 @@ export const LiveQueueScreen: React.FC = () => {
               <Text style={styles.yourTokenLabel}>YOUR TICKET</Text>
               <Text style={styles.yourTokenNumber}>{activeToken.tokenNumber}</Text>
             </View>
-            <View style={styles.aheadPill}>
-              <Text style={styles.aheadCount}>{peopleAhead}</Text>
-              <Text style={styles.aheadLabel}>person ahead</Text>
+            <View style={[styles.aheadPill, isCalled && { backgroundColor: '#DCFCE7' }]}>
+              <Text style={[styles.aheadCount, isCalled && { color: '#16A36A' }]}>
+                {isCalled ? '✓' : peopleAhead}
+              </Text>
+              <Text style={[styles.aheadLabel, isCalled && { color: '#16A36A' }]}>
+                {isCalled ? 'Your Turn' : 'person ahead'}
+              </Text>
             </View>
           </View>
         </View>
@@ -99,26 +120,66 @@ export const LiveQueueScreen: React.FC = () => {
             </View>
 
             <View style={styles.timelineItem}>
-              <View style={[styles.timelineDot, styles.dotDone]} />
+              <View
+                style={[
+                  styles.timelineDot,
+                  isCheckedIn || isCalled || isInService || isCompleted
+                    ? styles.dotDone
+                    : styles.dotCurrent,
+                ]}
+              />
               <View style={styles.timelineContent}>
                 <Text style={styles.timelineStep}>2. Check-In Verified</Text>
-                <Text style={styles.timelineSub}>Lobby presence confirmed via kiosk</Text>
+                <Text style={styles.timelineSub}>
+                  {isCheckedIn || isCalled || isInService
+                    ? 'Lobby presence confirmed via kiosk'
+                    : 'Scan QR at entrance kiosk upon arrival'}
+                </Text>
               </View>
             </View>
 
             <View style={styles.timelineItem}>
-              <View style={[styles.timelineDot, styles.dotCurrent]} />
+              <View
+                style={[
+                  styles.timelineDot,
+                  isCalled || isInService || isCompleted
+                    ? styles.dotDone
+                    : isCheckedIn
+                    ? styles.dotCurrent
+                    : styles.dotPending,
+                ]}
+              />
               <View style={styles.timelineContent}>
-                <Text style={[styles.timelineStep, styles.stepCurrent]}>3. Next in Line</Text>
-                <Text style={styles.timelineSub}>Estimated call time in ~{activeToken.estimatedWaitMinutes} minutes</Text>
+                <Text
+                  style={[
+                    styles.timelineStep,
+                    (isCalled || isInService) && styles.stepCurrent,
+                  ]}
+                >
+                  3. Summoned to Counter
+                </Text>
+                <Text style={styles.timelineSub}>
+                  {isCalled
+                    ? `Active call at ${activeToken.assignedCounterNumber || 'Counter 01'}`
+                    : `Estimated call time in ~${activeToken.estimatedWaitMinutes} minutes`}
+                </Text>
               </View>
             </View>
 
             <View style={styles.timelineItem}>
-              <View style={[styles.timelineDot, styles.dotPending]} />
+              <View
+                style={[
+                  styles.timelineDot,
+                  isCompleted ? styles.dotDone : styles.dotPending,
+                ]}
+              />
               <View style={styles.timelineContent}>
-                <Text style={styles.timelineStep}>4. Counter Consultation</Text>
-                <Text style={styles.timelineSub}>Counter 01 Desk</Text>
+                <Text style={styles.timelineStep}>4. Service Consultation</Text>
+                <Text style={styles.timelineSub}>
+                  {isCompleted
+                    ? 'Consultation successfully completed'
+                    : activeToken.assignedCounterNumber || 'Station Desk'}
+                </Text>
               </View>
             </View>
           </View>

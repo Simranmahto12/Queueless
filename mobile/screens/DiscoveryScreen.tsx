@@ -49,7 +49,7 @@ export const DiscoveryScreen: React.FC = () => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.chipRow}
         >
-          {['ALL', 'HEALTHCARE', 'BANKING', 'GOVERNMENT'].map((sec) => (
+          {['ALL', 'HEALTHCARE', 'BANKING', 'GOVERNMENT', 'EDUCATION'].map((sec) => (
             <TouchableOpacity
               key={sec}
               onPress={() => setSelectedSector(sec)}

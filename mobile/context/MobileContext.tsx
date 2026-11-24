@@ -14,6 +14,7 @@ import {
   bookToken as bookTokenBackend,
   cancelToken as cancelTokenBackend,
   listenSingleToken,
+  listenVisitorTokens,
   listenInstitutions,
   loginUser,
   registerVisitor,
@@ -140,6 +141,39 @@ export const MobileProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       unsubInst();
     };
   }, []);
+
+  // Real-Time Visitor Active Token & History Listener (Session Restoration & Updates)
+  useEffect(() => {
+    if (!user?.userId) {
+      setActiveToken(null);
+      setTokensHistory([]);
+      return;
+    }
+
+    const unsubVisitor = listenVisitorTokens(user.userId, ({ active, history }) => {
+      setActiveToken((prev) => {
+        if (prev && prev.status !== 'CALLED' && active?.status === 'CALLED') {
+          setNotifications((n) => [
+            {
+              id: `notif-${Date.now()}`,
+              title: 'Your Token Is Called!',
+              message: `Token ${active.tokenNumber} summoned to ${active.assignedCounterNumber || 'Counter'}. Please proceed immediately.`,
+              time: 'Just now',
+              type: 'CALLED',
+              isRead: false,
+            },
+            ...n,
+          ]);
+        }
+        return active;
+      });
+      setTokensHistory(history);
+    });
+
+    return () => {
+      unsubVisitor();
+    };
+  }, [user?.userId]);
 
   // Real-Time Single Token Listener for Active Token
   useEffect(() => {

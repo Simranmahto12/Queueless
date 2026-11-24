@@ -293,7 +293,7 @@ export async function loginUser(
     if (options?.requireAdminOrStaff && profile.role === UserRole.VISITOR) {
       await signOut(auth); // Immediately terminate visitor session on admin console
       throw new Error(
-        'Access Denied: Visitor accounts are not authorized to access the Institution Administration Console.'
+        'This account is registered as a visitor. Please use the QueueLess Visitor App to manage your bookings.'
       );
     }
 
@@ -312,7 +312,7 @@ export async function loginUser(
 
   if (options?.requireAdminOrStaff && account.user.role === UserRole.VISITOR) {
     throw new Error(
-      'Access Denied: Visitor accounts are not authorized to access the Institution Administration Console.'
+      'This account is registered as a visitor. Please use the QueueLess Visitor App to manage your bookings.'
     );
   }
 
