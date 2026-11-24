@@ -77,6 +77,16 @@ test('QueueLess Authentication & RBAC Suite', async (t) => {
     assert.equal(hasAdminPermission(admin.role), true);
   });
 
+  await t.test('6b. Priya Patel (priyachi89711@gmail.com) can log into admin console', async () => {
+    const priyaAdmin = await loginUser('priyachi89711@gmail.com', '1234567890', {
+      requireAdminOrStaff: true,
+    });
+    assert.equal(priyaAdmin.email, 'priyachi89711@gmail.com');
+    assert.equal(priyaAdmin.displayName, 'Priya Patel');
+    assert.equal(priyaAdmin.role, UserRole.INSTITUTION_ADMIN);
+    assert.equal(hasAdminPermission(priyaAdmin.role), true);
+  });
+
   await t.test('7. Authorized counter staff can log into admin console', async () => {
     const staff = await loginUser('staff.clara@apexhealth.org', 'StaffPass123!', {
       requireAdminOrStaff: true,
