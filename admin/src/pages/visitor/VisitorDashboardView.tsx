@@ -8,7 +8,6 @@ import {
   Clock,
   QrCode,
   Users,
-  CheckCircle2,
   AlertCircle,
   X,
   LogOut,
@@ -19,7 +18,6 @@ import {
   Landmark,
   GraduationCap,
   Briefcase,
-  HelpCircle,
   Loader2,
   ShieldAlert,
 } from 'lucide-react';
@@ -48,14 +46,15 @@ export const VisitorDashboardView: React.FC = () => {
     bookVisitorToken,
     cancelToken,
     checkInToken,
-    connectionState,
     addToast,
   } = useAdmin();
 
-  // Active token & history state
-  const [activeToken, setActiveToken] = useState<Token | null>(null);
+  // Active bookings & history state
+  const [activeTokens, setActiveTokens] = useState<Token[]>([]);
   const [historyTokens, setHistoryTokens] = useState<Token[]>([]);
   const [isListenerLoading, setIsListenerLoading] = useState(true);
+  const [detailsToken, setDetailsToken] = useState<Token | null>(null);
+  const [detailsMode, setDetailsMode] = useState<'details' | 'queue' | null>(null);
 
   // Discovery & Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -66,7 +65,7 @@ export const VisitorDashboardView: React.FC = () => {
   const [selectedBranchId, setSelectedBranchId] = useState<string>('');
   const [selectedDeptId, setSelectedDeptId] = useState<string>('');
   const [selectedServiceId, setSelectedServiceId] = useState<string>('');
-  const [selectedSlotTime, setSelectedSlotTime] = useState<string>('10:30');
+  const [selectedSlotTime, setSelectedSlotTime] = useState<string>('');
   const [isBookingSubmitting, setIsBookingSubmitting] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
 
@@ -75,9 +74,10 @@ export const VisitorDashboardView: React.FC = () => {
     if (!currentUser?.id) return;
 
     setIsListenerLoading(true);
-    const unsubscribe = listenVisitorTokens(currentUser.id, ({ active, history }) => {
-      setActiveToken(active);
-      setHistoryTokens(history.filter((t) => t.tokenId !== active?.tokenId));
+    const unsubscribe = listenVisitorTokens(currentUser.id, ({ activeTokens: visitorActiveTokens, history }) => {
+      const activeTokenIds = new Set(visitorActiveTokens.map((token) => token.tokenId));
+      setActiveTokens(visitorActiveTokens);
+      setHistoryTokens(history.filter((token) => !activeTokenIds.has(token.tokenId)));
       setIsListenerLoading(false);
     });
 
@@ -89,7 +89,9 @@ export const VisitorDashboardView: React.FC = () => {
   // Filtered branches for booking modal
   const availableBranches = useMemo(() => {
     if (!bookingInstitution) return [];
-    return MOCK_BRANCHES.filter((b) => b.institutionId === bookingInstitution.institutionId);
+    return MOCK_BRANCHES.filter(
+      (branch) => branch.institutionId === bookingInstitution.institutionId && branch.isActive
+    );
   }, [bookingInstitution]);
 
   // Filtered departments for booking modal
@@ -98,34 +100,22 @@ export const VisitorDashboardView: React.FC = () => {
     return MOCK_DEPARTMENTS.filter(
       (d) =>
         d.institutionId === bookingInstitution.institutionId &&
-        (!selectedBranchId || d.branchId === selectedBranchId)
+        d.branchId === selectedBranchId &&
+        d.isActive
     );
   }, [bookingInstitution, selectedBranchId]);
 
   // Filtered services for booking modal
   const availableServices = useMemo(() => {
-    if (!selectedDeptId) return [];
-    return MOCK_SERVICES.filter((s) => s.departmentId === selectedDeptId);
-  }, [selectedDeptId]);
-
-  // Initialize branch and dept when booking modal opens
-  useEffect(() => {
-    if (bookingInstitution) {
-      const branches = MOCK_BRANCHES.filter((b) => b.institutionId === bookingInstitution.institutionId);
-      const defaultBranchId = branches[0]?.branchId || '';
-      setSelectedBranchId(defaultBranchId);
-
-      const depts = MOCK_DEPARTMENTS.filter(
-        (d) => d.institutionId === bookingInstitution.institutionId && d.branchId === defaultBranchId
-      );
-      const defaultDeptId = depts[0]?.departmentId || '';
-      setSelectedDeptId(defaultDeptId);
-
-      const srvs = MOCK_SERVICES.filter((s) => s.departmentId === defaultDeptId);
-      setSelectedServiceId(srvs[0]?.serviceId || '');
-      setBookingError(null);
-    }
-  }, [bookingInstitution]);
+    if (!bookingInstitution || !selectedBranchId || !selectedDeptId) return [];
+    return MOCK_SERVICES.filter(
+      (service) =>
+        service.institutionId === bookingInstitution.institutionId &&
+        service.branchId === selectedBranchId &&
+        service.departmentId === selectedDeptId &&
+        service.isActive
+    );
+  }, [bookingInstitution, selectedBranchId, selectedDeptId]);
 
   // Filtered institutions for discovery list
   const filteredInstitutions = useMemo(() => {
@@ -140,20 +130,18 @@ export const VisitorDashboardView: React.FC = () => {
   }, [institutions, searchQuery, selectedSector]);
 
   const handleOpenBooking = (inst: Institution) => {
-    if (activeToken) {
-      addToast(
-        'warning',
-        'You already have an active queue token. Please complete or cancel it before booking a new one.'
-      );
-      return;
-    }
+    setSelectedBranchId('');
+    setSelectedDeptId('');
+    setSelectedServiceId('');
+    setSelectedSlotTime('');
+    setBookingError(null);
     setBookingInstitution(inst);
   };
 
   const handleExecuteBooking = async () => {
     if (!bookingInstitution || !currentUser) return;
-    if (!selectedBranchId || !selectedDeptId || !selectedServiceId) {
-      setBookingError('Please select branch, department, and service.');
+    if (!selectedBranchId || !selectedDeptId || !selectedServiceId || !selectedSlotTime) {
+      setBookingError('Please select a branch, department, service, and arrival window.');
       return;
     }
 
@@ -185,24 +173,27 @@ export const VisitorDashboardView: React.FC = () => {
     }
   };
 
-  const handleCancelActiveToken = async () => {
-    if (!activeToken) return;
-    if (window.confirm('Are you sure you want to cancel your active queue token?')) {
+  const handleCancelToken = async (token: Token) => {
+    if (window.confirm(`Cancel booking ${token.tokenNumber}?`)) {
       try {
-        await cancelToken(activeToken.tokenId, 'Cancelled by visitor');
+        await cancelToken(token.tokenId, 'Cancelled by visitor');
       } catch (err: unknown) {
-        addToast('danger', 'Unable to cancel token.');
+        addToast('danger', err instanceof Error ? err.message : 'Unable to cancel booking.');
       }
     }
   };
 
-  const handleSimulateCheckIn = async () => {
-    if (!activeToken) return;
+  const handleSimulateCheckIn = async (token: Token) => {
     try {
-      await checkInToken(activeToken.tokenId);
+      await checkInToken(token.tokenId);
     } catch (err: unknown) {
-      addToast('danger', 'Check-in validation failed.');
+      addToast('danger', err instanceof Error ? err.message : 'Check-in validation failed.');
     }
+  };
+
+  const openTokenDetails = (token: Token, mode: 'details' | 'queue') => {
+    setDetailsToken(token);
+    setDetailsMode(mode);
   };
 
   const handleLogout = async () => {
@@ -225,53 +216,71 @@ export const VisitorDashboardView: React.FC = () => {
     }
   };
 
-  const getStatusBadge = (status: TokenStatus) => {
+  const getStatusLabel = (status: TokenStatus) => {
     switch (status) {
+      case TokenStatus.ISSUED: return 'Upcoming';
       case TokenStatus.CALLED:
-        return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
-            <span className="w-2 h-2 rounded-full bg-amber-500" />
-            <span>Called to Counter — Proceed Now</span>
-          </span>
-        );
-      case TokenStatus.IN_PROGRESS:
-        return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-            <span>Currently Being Served</span>
-          </span>
-        );
+      case TokenStatus.IN_PROGRESS: return 'In Progress';
+      case TokenStatus.WAITING:
       case TokenStatus.CHECKED_IN:
-        return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-            <span className="w-2 h-2 rounded-full bg-blue-500" />
-            <span>Checked In On-Site (Waiting)</span>
-          </span>
-        );
-      case TokenStatus.COMPLETED:
-        return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700">
-            Completed
-          </span>
-        );
-      case TokenStatus.CANCELLED:
-        return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-rose-50 text-rose-700">
-            Cancelled
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
-            <span className="w-2 h-2 rounded-full bg-primary" />
-            <span>Confirmed &bull; Slot Allocated</span>
-          </span>
-        );
+        return 'Waiting';
+      case TokenStatus.COMPLETED: return 'Completed';
+      case TokenStatus.CANCELLED: return 'Cancelled';
+      case TokenStatus.NO_SHOW: return 'No Show';
+      case TokenStatus.EXPIRED: return 'Expired';
+      case TokenStatus.TRANSFERRED: return 'Transferred';
+      default: return status;
     }
   };
 
+  const getStatusBadge = (status: TokenStatus) => {
+    const statusStyles: Partial<Record<TokenStatus, string>> = {
+      [TokenStatus.ISSUED]: 'bg-primary/10 text-primary border-primary/20',
+      [TokenStatus.WAITING]: 'bg-blue-50 text-blue-700 border-blue-200',
+      [TokenStatus.CHECKED_IN]: 'bg-blue-50 text-blue-700 border-blue-200',
+      [TokenStatus.CALLED]: 'bg-amber-100 text-amber-800 border-amber-300',
+      [TokenStatus.IN_PROGRESS]: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+      [TokenStatus.COMPLETED]: 'bg-slate-100 text-slate-700 border-slate-200',
+      [TokenStatus.CANCELLED]: 'bg-rose-50 text-rose-700 border-rose-200',
+      [TokenStatus.NO_SHOW]: 'bg-rose-50 text-rose-700 border-rose-200',
+      [TokenStatus.EXPIRED]: 'bg-slate-100 text-slate-700 border-slate-200',
+      [TokenStatus.TRANSFERRED]: 'bg-violet-50 text-violet-700 border-violet-200',
+    };
+
+    return (
+      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border ${statusStyles[status] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+        {getStatusLabel(status)}
+      </span>
+    );
+  };
+
+  const getEstimatedQueuePosition = (token: Token) => {
+    if (token.status === TokenStatus.CALLED || token.status === TokenStatus.IN_PROGRESS) {
+      return 'At the counter';
+    }
+    return `~${Math.max(1, Math.ceil((token.estimatedWaitMinutes || 10) / 6))} ahead`;
+  };
+
+  const displayedDetailsToken = detailsToken
+    ? activeTokens.find((token) => token.tokenId === detailsToken.tokenId) ||
+      historyTokens.find((token) => token.tokenId === detailsToken.tokenId) ||
+      detailsToken
+    : null;
+  const detailsInstitution = displayedDetailsToken
+    ? institutions.find((item) => item.institutionId === displayedDetailsToken.institutionId)
+    : undefined;
+  const detailsBranch = displayedDetailsToken
+    ? MOCK_BRANCHES.find((item) => item.branchId === displayedDetailsToken.branchId)
+    : undefined;
+  const detailsDepartment = displayedDetailsToken
+    ? MOCK_DEPARTMENTS.find((item) => item.departmentId === displayedDetailsToken.departmentId)
+    : undefined;
+  const detailsService = displayedDetailsToken
+    ? MOCK_SERVICES.find((item) => item.serviceId === displayedDetailsToken.serviceId)
+    : undefined;
+
   return (
-    <div className="flex-1 bg-appBg text-textMain flex flex-col font-sans selection:bg-primary/20">
+    <div className="min-h-screen bg-appBg text-textMain flex flex-col font-sans selection:bg-primary/20">
       {/* Top Header */}
       <header className="bg-white border-b border-borderSoft sticky top-0 z-20 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -318,139 +327,154 @@ export const VisitorDashboardView: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full space-y-8">
-        {/* Active Token Hero Pass */}
+        {/* Active Booking Cards */}
         <section>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
               <h2 className="text-sm font-bold uppercase tracking-wider text-navy">
-                Your Current Visit Pass
+                Your Current Visit Passes
               </h2>
             </div>
-            {activeToken && (
+            {activeTokens.length > 0 && (
               <span className="text-xs text-textMuted">
-                Live position auto-updates every few seconds
+                {activeTokens.length} active booking{activeTokens.length === 1 ? '' : 's'} · Live updates
               </span>
             )}
           </div>
 
-          {activeToken ? (
-            <div className="bg-white rounded-2xl border border-primary/30 shadow-md p-6 sm:p-8 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+          {isListenerLoading ? (
+            <div className="bg-white rounded-2xl border border-borderSoft p-8 text-center text-xs text-textMuted">
+              <Loader2 className="w-4 h-4 animate-spin text-primary mx-auto mb-2" />
+              Loading your bookings...
+            </div>
+          ) : activeTokens.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {activeTokens.map((token) => {
+                const institution = institutions.find(
+                  (item) => item.institutionId === token.institutionId
+                );
+                const branch = MOCK_BRANCHES.find((item) => item.branchId === token.branchId);
+                const department = MOCK_DEPARTMENTS.find(
+                  (item) => item.departmentId === token.departmentId
+                );
+                const service = MOCK_SERVICES.find((item) => item.serviceId === token.serviceId);
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 items-center">
-                {/* Left: Token Number & Facility Info */}
-                <div className="lg:col-span-2 space-y-4">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="px-4 py-2 bg-navy text-white rounded-xl font-mono text-2xl font-extrabold tracking-wider shadow-sm border border-navy">
-                      {activeToken.tokenNumber}
-                    </div>
-                    {getStatusBadge(activeToken.status)}
-                  </div>
-
-                  <div>
-                    <h3 className="text-xl font-bold text-navy">
-                      {institutions.find((i) => i.institutionId === activeToken.institutionId)?.name ||
-                        'Institutional Facility'}
-                    </h3>
-                    <p className="text-xs text-textMuted mt-1">
-                      {MOCK_DEPARTMENTS.find((d) => d.departmentId === activeToken.departmentId)?.name ||
-                        'Service Department'}{' '}
-                      &bull;{' '}
-                      {MOCK_SERVICES.find((s) => s.serviceId === activeToken.serviceId)?.name ||
-                        'General Consultation'}
-                    </p>
-                  </div>
-
-                  {/* Arrival Slot & ETA Badges */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                    <div className="p-3 bg-slate-50 border border-borderSoft rounded-xl">
-                      <div className="flex items-center gap-1.5 text-textMuted text-xs mb-1">
-                        <Clock className="w-3.5 h-3.5 text-primary" />
-                        <span>Arrival Window</span>
+                return (
+                  <article
+                    key={token.tokenId}
+                    className="bg-white border border-borderSoft border-t-4 border-t-primary rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow flex flex-col"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          {getSectorIcon(institution?.sector || InstitutionSector.OTHER)}
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-textMuted">
+                            {institution?.sector || 'Institution'}
+                          </span>
+                        </div>
+                        <h3 className="text-sm font-bold text-navy leading-snug">
+                          {institution?.name || 'Institutional Facility'}
+                        </h3>
                       </div>
-                      <div className="text-sm font-bold text-navy">
-                        {activeToken.scheduledSlot.startTime} - {activeToken.scheduledSlot.endTime}
-                      </div>
+                      {getStatusBadge(token.status)}
                     </div>
 
-                    <div className="p-3 bg-slate-50 border border-borderSoft rounded-xl">
-                      <div className="flex items-center gap-1.5 text-textMuted text-xs mb-1">
-                        <Users className="w-3.5 h-3.5 text-primary" />
-                        <span>Ahead of You</span>
+                    <div className="mb-4 px-3 py-2 bg-navy text-white rounded-xl font-mono text-lg font-extrabold tracking-wide text-center break-all">
+                      {token.tokenNumber}
+                    </div>
+
+                    <div className="space-y-2 text-xs text-textMuted flex-1">
+                      <p className="flex items-start gap-2">
+                        <MapPin className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                        <span>{branch?.name || token.branchId}</span>
+                      </p>
+                      <p>
+                        <span className="font-semibold text-textMain">Department:</span>{' '}
+                        {department?.name || token.departmentId}
+                      </p>
+                      <p>
+                        <span className="font-semibold text-textMain">Service:</span>{' '}
+                        {service?.name || token.serviceId}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 mt-4">
+                      <div className="p-2.5 bg-slate-50 border border-borderSoft rounded-xl">
+                        <div className="flex items-center gap-1 text-[10px] text-textMuted mb-1">
+                          <Calendar className="w-3 h-3 text-primary" />
+                          Booking Date
+                        </div>
+                        <div className="text-xs font-semibold text-navy">{token.scheduledSlot.date}</div>
                       </div>
-                      <div className="text-sm font-bold text-navy">
-                        {Math.max(0, Math.ceil((activeToken.estimatedWaitMinutes || 10) / 6))} visitor(s)
+                      <div className="p-2.5 bg-slate-50 border border-borderSoft rounded-xl">
+                        <div className="flex items-center gap-1 text-[10px] text-textMuted mb-1">
+                          <Clock className="w-3 h-3 text-primary" />
+                          Arrival Time
+                        </div>
+                        <div className="text-xs font-semibold text-navy">
+                          {token.scheduledSlot.startTime} - {token.scheduledSlot.endTime}
+                        </div>
+                      </div>
+                      <div className="p-2.5 bg-slate-50 border border-borderSoft rounded-xl">
+                        <div className="flex items-center gap-1 text-[10px] text-textMuted mb-1">
+                          <Users className="w-3 h-3 text-primary" />
+                          Queue Position (est.)
+                        </div>
+                        <div className="text-xs font-semibold text-navy">
+                          {getEstimatedQueuePosition(token)}
+                        </div>
+                      </div>
+                      <div className="p-2.5 bg-slate-50 border border-borderSoft rounded-xl">
+                        <div className="flex items-center gap-1 text-[10px] text-textMuted mb-1">
+                          <Clock className="w-3 h-3 text-primary" />
+                          Estimated Wait
+                        </div>
+                        <div className="text-xs font-semibold text-navy">
+                          {token.status === TokenStatus.CALLED || token.status === TokenStatus.IN_PROGRESS
+                            ? 'Now'
+                            : `${token.estimatedWaitMinutes || 12} mins`}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="p-3 bg-slate-50 border border-borderSoft rounded-xl">
-                      <div className="flex items-center gap-1.5 text-textMuted text-xs mb-1">
-                        <Calendar className="w-3.5 h-3.5 text-primary" />
-                        <span>Estimated Wait</span>
-                      </div>
-                      <div className="text-sm font-bold text-navy">
-                        {activeToken.estimatedWaitMinutes || 12} mins
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex flex-wrap items-center gap-3 pt-3">
-                    {!activeToken.checkedInAt && activeToken.status === TokenStatus.ISSUED && (
+                    <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-borderSoft">
                       <button
-                        onClick={handleSimulateCheckIn}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-xs font-semibold rounded-xl hover:bg-blue-700 shadow-sm transition"
+                        type="button"
+                        onClick={() => openTokenDetails(token, 'details')}
+                        className="flex-1 min-w-[100px] px-2.5 py-2 rounded-lg text-[11px] font-semibold text-navy bg-slate-50 border border-borderSoft hover:bg-slate-100 transition"
                       >
-                        <QrCode className="w-3.5 h-3.5" />
-                        <span>Simulate QR Check-In</span>
+                        View Details
                       </button>
-                    )}
-                    <button
-                      onClick={handleCancelActiveToken}
-                      className="inline-flex items-center gap-2 px-3.5 py-2 border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-medium rounded-xl transition"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                      <span>Cancel Token</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Right: Visual Digital QR Pass Box */}
-                <div className="bg-slate-50 border border-borderSoft rounded-2xl p-5 flex flex-col items-center justify-center text-center">
-                  <div className="bg-white p-3 rounded-xl border border-borderSoft shadow-xs mb-3">
-                    {/* SVG Stylized QR Code */}
-                    <svg className="w-32 h-32 text-navy" viewBox="0 0 100 100" fill="currentColor">
-                      {/* Corner Position Boxes */}
-                      <rect x="5" y="5" width="28" height="28" rx="4" fill="none" stroke="currentColor" strokeWidth="6" />
-                      <rect x="12" y="12" width="14" height="14" rx="2" />
-                      <rect x="67" y="5" width="28" height="28" rx="4" fill="none" stroke="currentColor" strokeWidth="6" />
-                      <rect x="74" y="12" width="14" height="14" rx="2" />
-                      <rect x="5" y="67" width="28" height="28" rx="4" fill="none" stroke="currentColor" strokeWidth="6" />
-                      <rect x="12" y="74" width="14" height="14" rx="2" />
-                      {/* Stylized QR Data Matrix */}
-                      <rect x="42" y="10" width="7" height="7" rx="1" />
-                      <rect x="52" y="10" width="7" height="7" rx="1" />
-                      <rect x="42" y="24" width="7" height="7" rx="1" />
-                      <rect x="10" y="42" width="7" height="7" rx="1" />
-                      <rect x="24" y="42" width="7" height="7" rx="1" />
-                      <rect x="42" y="42" width="16" height="16" rx="2" />
-                      <rect x="67" y="42" width="7" height="7" rx="1" />
-                      <rect x="83" y="42" width="7" height="7" rx="1" />
-                      <rect x="42" y="67" width="7" height="7" rx="1" />
-                      <rect x="52" y="77" width="7" height="7" rx="1" />
-                      <rect x="67" y="67" width="12" height="7" rx="1" />
-                      <rect x="82" y="77" width="8" height="12" rx="1" />
-                    </svg>
-                  </div>
-                  <span className="text-[11px] font-mono font-semibold text-navy">
-                    {activeToken.tokenId}
-                  </span>
-                  <span className="text-[10px] text-textMuted mt-0.5">
-                    Present at building entrance or counter scanner
-                  </span>
-                </div>
-              </div>
+                      <button
+                        type="button"
+                        onClick={() => openTokenDetails(token, 'queue')}
+                        className="flex-1 min-w-[100px] px-2.5 py-2 rounded-lg text-[11px] font-semibold text-white bg-primary hover:bg-blue-700 transition"
+                      >
+                        View Queue Status
+                      </button>
+                      {!token.checkedInAt && token.status === TokenStatus.ISSUED && (
+                        <button
+                          type="button"
+                          onClick={() => handleSimulateCheckIn(token)}
+                          className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg text-[11px] font-semibold text-primary border border-primary/20 hover:bg-primary/5 transition"
+                        >
+                          <QrCode className="w-3.5 h-3.5" />
+                          Simulate QR Check-In
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleCancelToken(token)}
+                        className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg text-[11px] font-semibold text-rose-700 border border-rose-200 hover:bg-rose-50 transition"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        Cancel Booking
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           ) : (
             <div className="bg-white rounded-2xl border border-dashed border-borderSoft p-8 text-center">
@@ -462,12 +486,19 @@ export const VisitorDashboardView: React.FC = () => {
                 You do not currently have an active waiting queue token. Browse participating facilities
                 below to reserve an arrival slot.
               </p>
+              <a
+                href="#discover-book-services"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-primary hover:bg-blue-700 transition"
+              >
+                Explore and book services
+                <ChevronRight className="w-3.5 h-3.5" />
+              </a>
             </div>
           )}
         </section>
 
         {/* Institution Discovery & Booking */}
-        <section className="space-y-4">
+        <section id="discover-book-services" className="space-y-4">
           <div>
             <h2 className="text-lg font-bold text-navy">Discover & Book Services</h2>
             <p className="text-xs text-textMuted mt-0.5">
@@ -567,7 +598,7 @@ export const VisitorDashboardView: React.FC = () => {
             <h2 className="text-sm font-bold uppercase tracking-wider text-navy">
               Your Booking History
             </h2>
-            <span className="text-xs text-textMuted">{historyTokens.length} completed visits</span>
+            <span className="text-xs text-textMuted">{historyTokens.length} past bookings</span>
           </div>
 
           {historyTokens.length > 0 ? (
@@ -609,10 +640,167 @@ export const VisitorDashboardView: React.FC = () => {
         </section>
       </main>
 
+      {displayedDetailsToken && detailsMode && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="token-details-title"
+            className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 sm:p-7 shadow-xl border border-borderSoft relative animate-in fade-in duration-150"
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setDetailsToken(null);
+                setDetailsMode(null);
+              }}
+              aria-label="Close booking details"
+              className="absolute top-5 right-5 p-1 rounded-lg text-textMuted hover:text-textMain hover:bg-slate-100"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2 mb-1">
+              <Ticket className="w-4 h-4 text-primary" />
+              <span className="text-xs font-bold uppercase tracking-wider text-primary">
+                {detailsMode === 'queue' ? 'Live Queue Status' : 'Booking Details'}
+              </span>
+            </div>
+            <h3 id="token-details-title" className="text-xl font-bold text-navy mb-4 pr-8">
+              {detailsInstitution?.name || 'Institutional Facility'}
+            </h3>
+
+            <div className="flex flex-wrap items-center gap-3 mb-5">
+              <div className="px-3 py-2 bg-navy text-white rounded-xl font-mono text-lg font-extrabold tracking-wide break-all">
+                {displayedDetailsToken.tokenNumber}
+              </div>
+              {getStatusBadge(displayedDetailsToken.status)}
+            </div>
+
+            {detailsMode === 'queue' ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3 bg-slate-50 border border-borderSoft rounded-xl">
+                    <div className="text-xs text-textMuted mb-1">Queue Position (est.)</div>
+                    <div className="text-sm font-bold text-navy">
+                      {getEstimatedQueuePosition(displayedDetailsToken)}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-slate-50 border border-borderSoft rounded-xl">
+                    <div className="text-xs text-textMuted mb-1">Estimated Wait</div>
+                    <div className="text-sm font-bold text-navy">
+                      {displayedDetailsToken.status === TokenStatus.CALLED ||
+                      displayedDetailsToken.status === TokenStatus.IN_PROGRESS
+                        ? 'Now'
+                        : `${displayedDetailsToken.estimatedWaitMinutes || 12} mins`}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-slate-50 border border-borderSoft rounded-xl">
+                    <div className="text-xs text-textMuted mb-1">Arrival Window</div>
+                    <div className="text-sm font-bold text-navy">
+                      {displayedDetailsToken.scheduledSlot.startTime} - {displayedDetailsToken.scheduledSlot.endTime}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-[11px] text-textMuted">
+                  Queue position is estimated from the current wait-time estimate. Token status updates
+                  automatically when the queue changes.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-3 bg-slate-50 border border-borderSoft rounded-xl">
+                    <div className="text-xs text-textMuted mb-1">Institution Category</div>
+                    <div className="text-sm font-semibold text-navy">
+                      {detailsInstitution?.sector || 'Institution'}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-slate-50 border border-borderSoft rounded-xl">
+                    <div className="text-xs text-textMuted mb-1">Branch</div>
+                    <div className="text-sm font-semibold text-navy">
+                      {detailsBranch?.name || displayedDetailsToken.branchId}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-slate-50 border border-borderSoft rounded-xl">
+                    <div className="text-xs text-textMuted mb-1">Department</div>
+                    <div className="text-sm font-semibold text-navy">
+                      {detailsDepartment?.name || displayedDetailsToken.departmentId}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-slate-50 border border-borderSoft rounded-xl">
+                    <div className="text-xs text-textMuted mb-1">Service</div>
+                    <div className="text-sm font-semibold text-navy">
+                      {detailsService?.name || displayedDetailsToken.serviceId}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-slate-50 border border-borderSoft rounded-xl">
+                    <div className="text-xs text-textMuted mb-1">Booking Date</div>
+                    <div className="text-sm font-semibold text-navy">
+                      {displayedDetailsToken.scheduledSlot.date}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-slate-50 border border-borderSoft rounded-xl">
+                    <div className="text-xs text-textMuted mb-1">Arrival Window</div>
+                    <div className="text-sm font-semibold text-navy">
+                      {displayedDetailsToken.scheduledSlot.startTime} - {displayedDetailsToken.scheduledSlot.endTime}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 border border-borderSoft rounded-2xl p-4 flex flex-col items-center text-center">
+                  <div className="bg-white p-2 rounded-xl border border-borderSoft shadow-xs mb-2">
+                    <svg className="w-28 h-28 text-navy" viewBox="0 0 100 100" fill="currentColor">
+                      <rect x="5" y="5" width="28" height="28" rx="4" fill="none" stroke="currentColor" strokeWidth="6" />
+                      <rect x="12" y="12" width="14" height="14" rx="2" />
+                      <rect x="67" y="5" width="28" height="28" rx="4" fill="none" stroke="currentColor" strokeWidth="6" />
+                      <rect x="74" y="12" width="14" height="14" rx="2" />
+                      <rect x="5" y="67" width="28" height="28" rx="4" fill="none" stroke="currentColor" strokeWidth="6" />
+                      <rect x="12" y="74" width="14" height="14" rx="2" />
+                      <rect x="42" y="10" width="7" height="7" rx="1" />
+                      <rect x="52" y="10" width="7" height="7" rx="1" />
+                      <rect x="42" y="24" width="7" height="7" rx="1" />
+                      <rect x="10" y="42" width="7" height="7" rx="1" />
+                      <rect x="24" y="42" width="7" height="7" rx="1" />
+                      <rect x="42" y="42" width="16" height="16" rx="2" />
+                      <rect x="67" y="42" width="7" height="7" rx="1" />
+                      <rect x="83" y="42" width="7" height="7" rx="1" />
+                      <rect x="42" y="67" width="7" height="7" rx="1" />
+                      <rect x="52" y="77" width="7" height="7" rx="1" />
+                      <rect x="67" y="67" width="12" height="7" rx="1" />
+                      <rect x="82" y="77" width="8" height="12" rx="1" />
+                    </svg>
+                  </div>
+                  <span className="text-[10px] font-mono font-semibold text-navy break-all">
+                    {displayedDetailsToken.tokenId}
+                  </span>
+                  <span className="text-[10px] text-textMuted mt-0.5">
+                    Present at building entrance or counter scanner
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-5 pt-4 border-t border-borderSoft">
+              <button
+                type="button"
+                onClick={() => {
+                  setDetailsToken(null);
+                  setDetailsMode(null);
+                }}
+                className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold text-textMuted bg-slate-50 border border-borderSoft hover:bg-slate-100"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Booking Modal / Dialog */}
       {bookingInstitution && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 sm:p-7 shadow-xl border border-borderSoft relative animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 sm:p-7 shadow-xl border border-borderSoft relative animate-in fade-in duration-150">
             <button
               onClick={() => setBookingInstitution(null)}
               className="absolute top-5 right-5 p-1 rounded-lg text-textMuted hover:text-textMain hover:bg-slate-100"
@@ -642,18 +830,19 @@ export const VisitorDashboardView: React.FC = () => {
                   Select Branch
                 </label>
                 <select
+                  aria-label="Choose a branch"
                   value={selectedBranchId}
                   onChange={(e) => {
                     setSelectedBranchId(e.target.value);
-                    const depts = MOCK_DEPARTMENTS.filter(
-                      (d) =>
-                        d.institutionId === bookingInstitution.institutionId &&
-                        d.branchId === e.target.value
-                    );
-                    setSelectedDeptId(depts[0]?.departmentId || '');
+                    setSelectedDeptId('');
+                    setSelectedServiceId('');
+                    setBookingError(null);
                   }}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-borderSoft rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 text-textMain"
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-borderSoft rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 text-textMain transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 >
+                  <option value="" disabled>
+                    Choose a branch
+                  </option>
                   {availableBranches.map((b) => (
                     <option key={b.branchId} value={b.branchId}>
                       {b.name} ({b.address.city})
@@ -668,14 +857,19 @@ export const VisitorDashboardView: React.FC = () => {
                   Select Department
                 </label>
                 <select
+                  aria-label="Choose a department"
                   value={selectedDeptId}
                   onChange={(e) => {
                     setSelectedDeptId(e.target.value);
-                    const srvs = MOCK_SERVICES.filter((s) => s.departmentId === e.target.value);
-                    setSelectedServiceId(srvs[0]?.serviceId || '');
+                    setSelectedServiceId('');
+                    setBookingError(null);
                   }}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-borderSoft rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 text-textMain"
+                  disabled={!selectedBranchId}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-borderSoft rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 text-textMain transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 >
+                  <option value="" disabled>
+                    {selectedBranchId ? 'Choose a department' : 'Select a branch first'}
+                  </option>
                   {availableDepartments.map((d) => (
                     <option key={d.departmentId} value={d.departmentId}>
                       {d.name}
@@ -690,10 +884,18 @@ export const VisitorDashboardView: React.FC = () => {
                   Select Service
                 </label>
                 <select
+                  aria-label="Choose a service"
                   value={selectedServiceId}
-                  onChange={(e) => setSelectedServiceId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-borderSoft rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 text-textMain"
+                  onChange={(e) => {
+                    setSelectedServiceId(e.target.value);
+                    setBookingError(null);
+                  }}
+                  disabled={!selectedDeptId}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-borderSoft rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 text-textMain transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 >
+                  <option value="" disabled>
+                    {selectedDeptId ? 'Choose a service' : 'Select a department first'}
+                  </option>
                   {availableServices.map((s) => (
                     <option key={s.serviceId} value={s.serviceId}>
                       {s.name} (~{s.estimatedDurationMinutes} mins)
@@ -712,7 +914,11 @@ export const VisitorDashboardView: React.FC = () => {
                     <button
                       key={slot}
                       type="button"
-                      onClick={() => setSelectedSlotTime(slot)}
+                      aria-pressed={selectedSlotTime === slot}
+                      onClick={() => {
+                        setSelectedSlotTime(slot);
+                        setBookingError(null);
+                      }}
                       className={`py-2 text-xs font-semibold rounded-xl border transition ${
                         selectedSlotTime === slot
                           ? 'bg-primary text-white border-primary shadow-xs'

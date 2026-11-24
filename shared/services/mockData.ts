@@ -27,6 +27,307 @@ import {
   AlertType,
 } from '../types/enums';
 
+const SAMPLE_CATALOG_TIMESTAMP = '2026-11-24T08:00:00Z';
+
+const SAMPLE_BRANCH_CATALOG = [
+  {
+    branchId: 'branch-apex-north',
+    institutionId: 'inst-apex-health',
+    name: 'North Branch',
+    code: 'NORTH-01',
+    city: 'North Metro City',
+    departments: [
+      {
+        departmentId: 'dep-apex-north-cardio',
+        name: 'Cardiology',
+        code: 'DEP-N-CARDIO',
+        services: [
+          { serviceId: 'srv-apex-north-consult', name: 'Cardiology Consultation', code: 'SRV-N-CARDIO-CONSULT', duration: 20 },
+          { serviceId: 'srv-apex-north-ecg', name: 'ECG', code: 'SRV-N-CARDIO-ECG', duration: 12 },
+        ],
+      },
+      {
+        departmentId: 'dep-apex-north-medicine',
+        name: 'General Medicine',
+        code: 'DEP-N-MED',
+        services: [
+          { serviceId: 'srv-apex-north-general', name: 'General Consultation', code: 'SRV-N-MED-CONSULT', duration: 15 },
+          { serviceId: 'srv-apex-north-followup', name: 'Follow-up Consultation', code: 'SRV-N-MED-FOLLOW', duration: 10 },
+        ],
+      },
+    ],
+  },
+  {
+    branchId: 'branch-apex-south',
+    institutionId: 'inst-apex-health',
+    name: 'South Branch',
+    code: 'SOUTH-01',
+    city: 'South Metro City',
+    departments: [
+      {
+        departmentId: 'dep-apex-south-orthopedics',
+        name: 'Orthopedics',
+        code: 'DEP-S-ORTHO',
+        services: [
+          { serviceId: 'srv-apex-south-ortho-consult', name: 'Orthopedic Consultation', code: 'SRV-S-ORTHO-CONSULT', duration: 20 },
+          { serviceId: 'srv-apex-south-xray', name: 'X-Ray Review', code: 'SRV-S-ORTHO-XRAY', duration: 15 },
+        ],
+      },
+      {
+        departmentId: 'dep-apex-south-pediatrics',
+        name: 'Pediatrics',
+        code: 'DEP-S-PED',
+        services: [
+          { serviceId: 'srv-apex-south-pediatric-consult', name: 'Pediatric Consultation', code: 'SRV-S-PED-CONSULT', duration: 20 },
+          { serviceId: 'srv-apex-south-pediatric-followup', name: 'Pediatric Follow-up', code: 'SRV-S-PED-FOLLOW', duration: 10 },
+        ],
+      },
+    ],
+  },
+  {
+    branchId: 'branch-bank-north',
+    institutionId: 'inst-metro-bank',
+    name: 'North Branch',
+    code: 'BANK-NORTH',
+    city: 'North Metro City',
+    departments: [
+      {
+        departmentId: 'dep-bank-north-teller',
+        name: 'Teller Services',
+        code: 'DEP-N-TELLER',
+        services: [
+          { serviceId: 'srv-bank-north-deposit', name: 'Cash Deposit', code: 'SRV-N-DEPOSIT', duration: 7 },
+          { serviceId: 'srv-bank-north-withdrawal', name: 'Cash Withdrawal', code: 'SRV-N-WITHDRAW', duration: 7 },
+        ],
+      },
+      {
+        departmentId: 'dep-bank-north-advisory',
+        name: 'Customer Advisory',
+        code: 'DEP-N-ADVISORY',
+        services: [
+          { serviceId: 'srv-bank-north-account', name: 'Account Opening', code: 'SRV-N-ACCOUNT', duration: 25 },
+          { serviceId: 'srv-bank-north-kyc', name: 'KYC Update', code: 'SRV-N-KYC', duration: 12 },
+        ],
+      },
+    ],
+  },
+  {
+    branchId: 'branch-bank-south',
+    institutionId: 'inst-metro-bank',
+    name: 'South Branch',
+    code: 'BANK-SOUTH',
+    city: 'South Metro City',
+    departments: [
+      {
+        departmentId: 'dep-bank-south-loans',
+        name: 'Loans & Mortgages',
+        code: 'DEP-S-LOANS',
+        services: [
+          { serviceId: 'srv-bank-south-loan-advice', name: 'Loan Advisory', code: 'SRV-S-LOAN-ADVICE', duration: 30 },
+          { serviceId: 'srv-bank-south-loan-docs', name: 'Loan Documentation', code: 'SRV-S-LOAN-DOCS', duration: 25 },
+        ],
+      },
+      {
+        departmentId: 'dep-bank-south-support',
+        name: 'Customer Support',
+        code: 'DEP-S-SUPPORT',
+        services: [
+          { serviceId: 'srv-bank-south-card', name: 'Card Services', code: 'SRV-S-CARD', duration: 10 },
+          { serviceId: 'srv-bank-south-dispute', name: 'Transaction Dispute', code: 'SRV-S-DISPUTE', duration: 15 },
+        ],
+      },
+    ],
+  },
+  {
+    branchId: 'branch-civic-main',
+    institutionId: 'inst-civic-center',
+    name: 'Main Branch',
+    code: 'CIVIC-MAIN',
+    city: 'Metro City',
+    departments: [
+      {
+        departmentId: 'dep-civic-main-registry',
+        name: 'Citizen Identity & Registry',
+        code: 'DEP-M-REGISTRY',
+        services: [
+          { serviceId: 'srv-civic-main-biometric', name: 'Biometric Enrollment', code: 'SRV-M-BIOMETRIC', duration: 12 },
+          { serviceId: 'srv-civic-main-record', name: 'Personal Record Update', code: 'SRV-M-RECORD', duration: 10 },
+        ],
+      },
+      {
+        departmentId: 'dep-civic-main-revenue',
+        name: 'Revenue & Certificates',
+        code: 'DEP-M-REVENUE',
+        services: [
+          { serviceId: 'srv-civic-main-certificate', name: 'Certificate Issuance', code: 'SRV-M-CERT', duration: 12 },
+          { serviceId: 'srv-civic-main-tax', name: 'Property Tax Payment', code: 'SRV-M-TAX', duration: 15 },
+        ],
+      },
+    ],
+  },
+  {
+    branchId: 'branch-civic-north',
+    institutionId: 'inst-civic-center',
+    name: 'North Branch',
+    code: 'CIVIC-NORTH',
+    city: 'North Metro City',
+    departments: [
+      {
+        departmentId: 'dep-civic-north-transport',
+        name: 'Transport & Driving Licenses',
+        code: 'DEP-N-TRANSPORT',
+        services: [
+          { serviceId: 'srv-civic-north-license', name: 'Driving License Application', code: 'SRV-N-LICENSE', duration: 15 },
+          { serviceId: 'srv-civic-north-vehicle', name: 'Vehicle Registration', code: 'SRV-N-VEHICLE', duration: 18 },
+        ],
+      },
+      {
+        departmentId: 'dep-civic-north-registry',
+        name: 'Citizen Registry',
+        code: 'DEP-N-REGISTRY',
+        services: [
+          { serviceId: 'srv-civic-north-id', name: 'Identity Enrollment', code: 'SRV-N-ID', duration: 12 },
+          { serviceId: 'srv-civic-north-address', name: 'Address Change', code: 'SRV-N-ADDRESS', duration: 10 },
+        ],
+      },
+    ],
+  },
+  {
+    branchId: 'branch-civic-south',
+    institutionId: 'inst-civic-center',
+    name: 'South Branch',
+    code: 'CIVIC-SOUTH',
+    city: 'South Metro City',
+    departments: [
+      {
+        departmentId: 'dep-civic-south-revenue',
+        name: 'Revenue & Certificates',
+        code: 'DEP-S-REVENUE',
+        services: [
+          { serviceId: 'srv-civic-south-income', name: 'Income Certificate', code: 'SRV-S-INCOME', duration: 12 },
+          { serviceId: 'srv-civic-south-tax', name: 'Property Tax Assessment', code: 'SRV-S-TAX', duration: 20 },
+        ],
+      },
+      {
+        departmentId: 'dep-civic-south-transport',
+        name: 'Transport Services',
+        code: 'DEP-S-TRANSPORT',
+        services: [
+          { serviceId: 'srv-civic-south-permit', name: 'Permit Application', code: 'SRV-S-PERMIT', duration: 15 },
+          { serviceId: 'srv-civic-south-renewal', name: 'License Renewal', code: 'SRV-S-RENEWAL', duration: 12 },
+        ],
+      },
+    ],
+  },
+  {
+    branchId: 'branch-univ-north',
+    institutionId: 'inst-metro-univ',
+    name: 'North Campus',
+    code: 'UNIV-NORTH',
+    city: 'North Metro City',
+    departments: [
+      {
+        departmentId: 'dep-univ-north-admissions',
+        name: 'Admissions & Enrollment',
+        code: 'DEP-N-ADMISSIONS',
+        services: [
+          { serviceId: 'srv-univ-north-application', name: 'Application Submission', code: 'SRV-N-APPLICATION', duration: 15 },
+          { serviceId: 'srv-univ-north-verification', name: 'Document Verification', code: 'SRV-N-VERIFY', duration: 12 },
+        ],
+      },
+      {
+        departmentId: 'dep-univ-north-finance',
+        name: 'Student Finance',
+        code: 'DEP-N-FINANCE',
+        services: [
+          { serviceId: 'srv-univ-north-fees', name: 'Tuition Fee Payment', code: 'SRV-N-FEES', duration: 8 },
+          { serviceId: 'srv-univ-north-scholarship', name: 'Scholarship Advisory', code: 'SRV-N-SCHOLARSHIP', duration: 18 },
+        ],
+      },
+    ],
+  },
+  {
+    branchId: 'branch-univ-south',
+    institutionId: 'inst-metro-univ',
+    name: 'South Campus',
+    code: 'UNIV-SOUTH',
+    city: 'South Metro City',
+    departments: [
+      {
+        departmentId: 'dep-univ-south-registrar',
+        name: 'Registrar & Records',
+        code: 'DEP-S-REGISTRAR',
+        services: [
+          { serviceId: 'srv-univ-south-transcript', name: 'Transcript Request', code: 'SRV-S-TRANSCRIPT', duration: 10 },
+          { serviceId: 'srv-univ-south-enrollment', name: 'Enrollment Letter', code: 'SRV-S-ENROLLMENT', duration: 8 },
+        ],
+      },
+      {
+        departmentId: 'dep-univ-south-exams',
+        name: 'Examination Services',
+        code: 'DEP-S-EXAMS',
+        services: [
+          { serviceId: 'srv-univ-south-admit', name: 'Admit Card Collection', code: 'SRV-S-ADMIT', duration: 5 },
+          { serviceId: 'srv-univ-south-review', name: 'Re-evaluation Application', code: 'SRV-S-REVIEW', duration: 12 },
+        ],
+      },
+    ],
+  },
+];
+
+const SAMPLE_BRANCHES: Branch[] = SAMPLE_BRANCH_CATALOG.map((branch) => ({
+  id: branch.branchId,
+  branchId: branch.branchId,
+  institutionId: branch.institutionId,
+  name: branch.name,
+  code: branch.code,
+  address: {
+    street: '1 Main Street',
+    city: branch.city,
+    state: 'NY',
+    postalCode: '10001',
+    country: 'USA',
+  },
+  isActive: true,
+  createdAt: SAMPLE_CATALOG_TIMESTAMP,
+  updatedAt: SAMPLE_CATALOG_TIMESTAMP,
+}));
+
+const SAMPLE_DEPARTMENTS: Department[] = SAMPLE_BRANCH_CATALOG.flatMap((branch) =>
+  branch.departments.map((department) => ({
+    id: department.departmentId,
+    departmentId: department.departmentId,
+    institutionId: branch.institutionId,
+    branchId: branch.branchId,
+    name: department.name,
+    code: department.code,
+    isActive: true,
+    createdAt: SAMPLE_CATALOG_TIMESTAMP,
+    updatedAt: SAMPLE_CATALOG_TIMESTAMP,
+  }))
+);
+
+const SAMPLE_SERVICES: Service[] = SAMPLE_BRANCH_CATALOG.flatMap((branch) =>
+  branch.departments.flatMap((department) =>
+    department.services.map((service) => ({
+      id: service.serviceId,
+      serviceId: service.serviceId,
+      institutionId: branch.institutionId,
+      branchId: branch.branchId,
+      departmentId: department.departmentId,
+      name: service.name,
+      code: service.code,
+      estimatedDurationMinutes: service.duration,
+      bufferMinutes: 2,
+      requiresAppointment: false,
+      allowWalkIn: true,
+      isActive: true,
+      createdAt: SAMPLE_CATALOG_TIMESTAMP,
+      updatedAt: SAMPLE_CATALOG_TIMESTAMP,
+    }))
+  )
+);
+
 // -------------------------------------------------------------
 // 1. Realistic Institutions
 // -------------------------------------------------------------
@@ -237,6 +538,7 @@ export const MOCK_BRANCHES: Branch[] = [
     createdAt: '2026-04-01T08:00:00Z',
     updatedAt: '2026-11-20T10:00:00Z',
   },
+  ...SAMPLE_BRANCHES,
 ];
 
 // -------------------------------------------------------------
@@ -337,6 +639,7 @@ export const MOCK_DEPARTMENTS: Department[] = [
     createdAt: '2026-04-01T08:00:00Z',
     updatedAt: '2026-11-20T10:00:00Z',
   },
+  ...SAMPLE_DEPARTMENTS,
 ];
 
 // -------------------------------------------------------------
@@ -470,6 +773,7 @@ export const MOCK_SERVICES: Service[] = [
     createdAt: '2026-04-01T08:00:00Z',
     updatedAt: '2026-11-20T10:00:00Z',
   },
+  ...SAMPLE_SERVICES,
 ];
 
 // -------------------------------------------------------------

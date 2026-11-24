@@ -30,11 +30,36 @@ import { MOCK_TOKENS, MOCK_COUNTERS } from '../mockData';
 // In-Memory Live Fallback Store
 let inMemoryTokens: Token[] = [...MOCK_TOKENS];
 let inMemoryCounters: Counter[] = [...MOCK_COUNTERS];
+let localTokenSequence = 0;
 
 const tokenSubscribers: Set<(tokens: Token[]) => void> = new Set();
 const counterSubscribers: Set<(counters: Counter[]) => void> = new Set();
 const singleTokenSubscribers: Map<string, Set<(token: Token | null) => void>> = new Map();
-const visitorTokensSubscribers: Map<string, Set<(data: { active: Token | null; history: Token[] }) => void>> = new Map();
+const visitorTokensSubscribers: Map<
+  string,
+  Set<(data: { active: Token | null; activeTokens: Token[]; history: Token[] }) => void>
+> = new Map();
+
+const ACTIVE_TOKEN_STATUSES = new Set([
+  TokenStatus.ISSUED,
+  TokenStatus.WAITING,
+  TokenStatus.CHECKED_IN,
+  TokenStatus.CALLED,
+  TokenStatus.IN_PROGRESS,
+]);
+
+function createVisitorTokenSnapshot(tokens: Token[]) {
+  const history = [...tokens].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+  const activeTokens = history.filter((token) => ACTIVE_TOKEN_STATUSES.has(token.status));
+
+  return {
+    active: activeTokens[0] || null,
+    activeTokens,
+    history,
+  };
+}
 
 function notifyTokenChange() {
   tokenSubscribers.forEach((cb) => cb([...inMemoryTokens]));
@@ -44,17 +69,8 @@ function notifyTokenChange() {
   });
   visitorTokensSubscribers.forEach((listeners, vId) => {
     const list = inMemoryTokens.filter((t) => t.visitorId === vId);
-    const active =
-      list.find((t) =>
-        [
-          TokenStatus.ISSUED,
-          TokenStatus.WAITING,
-          TokenStatus.CHECKED_IN,
-          TokenStatus.CALLED,
-          TokenStatus.IN_PROGRESS,
-        ].includes(t.status)
-      ) || null;
-    listeners.forEach((cb) => cb({ active, history: list }));
+    const snapshot = createVisitorTokenSnapshot(list);
+    listeners.forEach((cb) => cb(snapshot));
   });
 }
 
@@ -81,7 +97,7 @@ export function updateInMemoryTokenCheckIn(tokenId: string, checkedInAt: string)
 
 /**
  * Books a new digital token with smart arrival slot calculation and cryptographic QR reference.
- * Strictly validates availability and prevents duplicate or conflicting active bookings.
+ * Issues a distinct token for every booking, including concurrent bookings by one visitor.
  */
 export async function bookToken(request: CreateTokenRequest): Promise<Token> {
   const { db, isConfigured } = getFirebaseServices();
@@ -91,54 +107,6 @@ export async function bookToken(request: CreateTokenRequest): Promise<Token> {
   // Validate availability parameters
   if (!request.targetDate || !request.institutionId) {
     throw new Error('Target date and institution must be specified for booking.');
-  }
-
-  // Prevent duplicate or conflicting active bookings for the same visitor
-  if (request.visitorId) {
-    if (db && isConfigured) {
-      const activeQuery = query(
-        collection(db, 'tokens'),
-        where('visitorId', '==', request.visitorId)
-      );
-      const activeSnaps = await getDocs(activeQuery);
-      const activeTokens = activeSnaps.docs.map((d) => d.data() as Token);
-      const hasDuplicate = activeTokens.some(
-        (t) =>
-          t.scheduledSlot.date === request.targetDate &&
-          (t.departmentId === request.departmentId || t.serviceId === request.serviceId) &&
-          [
-            TokenStatus.ISSUED,
-            TokenStatus.WAITING,
-            TokenStatus.CHECKED_IN,
-            TokenStatus.CALLED,
-            TokenStatus.IN_PROGRESS,
-          ].includes(t.status)
-      );
-      if (hasDuplicate) {
-        throw new Error(
-          'Active booking already exists: You already hold an active queue token for this department today.'
-        );
-      }
-    } else {
-      const hasDuplicate = inMemoryTokens.some(
-        (t) =>
-          t.visitorId === request.visitorId &&
-          t.scheduledSlot.date === request.targetDate &&
-          (t.departmentId === request.departmentId || t.serviceId === request.serviceId) &&
-          [
-            TokenStatus.ISSUED,
-            TokenStatus.WAITING,
-            TokenStatus.CHECKED_IN,
-            TokenStatus.CALLED,
-            TokenStatus.IN_PROGRESS,
-          ].includes(t.status)
-      );
-      if (hasDuplicate) {
-        throw new Error(
-          'Active booking already exists: You already hold an active queue token for this department today.'
-        );
-      }
-    }
   }
 
   // Smart Arrival Slot & Wait Time Calculation
@@ -157,13 +125,17 @@ export async function bookToken(request: CreateTokenRequest): Promise<Token> {
     priority: request.priority || TokenPriority.STANDARD,
   });
 
-  const tokenId = `tok-${Date.now()}`;
-  // Unique departmental / service token format (e.g. T-CARD-105 or T-105)
+  const tokenId =
+    db && isConfigured
+      ? `tok-${doc(collection(db, 'tokens')).id}`
+      : `tok-${Date.now()}-${localTokenSequence++}-${Math.random().toString(36).slice(2)}`;
+  // Keep the readable prefix while deriving a unique suffix from the token ID.
   const deptCode = request.departmentId
     ? request.departmentId.replace('dep-', '').substring(0, 4).toUpperCase()
     : 'Q';
-  const tokenNum = Math.floor(100 + Math.random() * 900);
-  const tokenNumber = request.departmentId ? `T-${deptCode}-${tokenNum}` : `T-${tokenNum}`;
+  const tokenNumber = request.departmentId
+    ? `T-${deptCode}-${tokenId.slice(4).toUpperCase()}`
+    : `T-${tokenId.slice(4).toUpperCase()}`;
 
   const qrPayload = encodeQRPayload({
     tokenId,
@@ -206,7 +178,7 @@ export async function bookToken(request: CreateTokenRequest): Promise<Token> {
   if (db && isConfigured) {
     await setDoc(doc(db, 'tokens', tokenId), newToken);
     // Write audit log
-    const logId = `log-${Date.now()}`;
+    const logId = `log-${tokenId}`;
     const audit: AuditLog = {
       id: logId,
       logId,
@@ -237,7 +209,7 @@ export async function bookToken(request: CreateTokenRequest): Promise<Token> {
  */
 export function listenVisitorTokens(
   visitorId: string,
-  callback: (data: { active: Token | null; history: Token[] }) => void
+  callback: (data: { active: Token | null; activeTokens: Token[]; history: Token[] }) => void
 ): () => void {
   const { db, isConfigured } = getFirebaseServices();
 
@@ -251,36 +223,13 @@ export function listenVisitorTokens(
       q,
       (snapshot) => {
         const tokens = snapshot.docs
-          .map((d) => d.data() as Token)
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-        const active =
-          tokens.find((t) =>
-            [
-              TokenStatus.ISSUED,
-              TokenStatus.WAITING,
-              TokenStatus.CHECKED_IN,
-              TokenStatus.CALLED,
-              TokenStatus.IN_PROGRESS,
-            ].includes(t.status)
-          ) || null;
-
-        callback({ active, history: tokens });
+          .map((d) => d.data() as Token);
+        callback(createVisitorTokenSnapshot(tokens));
       },
       (err) => {
         console.warn('[QueueLess TokenService] Error listening to visitor tokens:', err);
         const list = inMemoryTokens.filter((t) => t.visitorId === visitorId);
-        const active =
-          list.find((t) =>
-            [
-              TokenStatus.ISSUED,
-              TokenStatus.WAITING,
-              TokenStatus.CHECKED_IN,
-              TokenStatus.CALLED,
-              TokenStatus.IN_PROGRESS,
-            ].includes(t.status)
-          ) || null;
-        callback({ active, history: list });
+        callback(createVisitorTokenSnapshot(list));
       }
     );
   }
@@ -292,17 +241,7 @@ export function listenVisitorTokens(
   visitorTokensSubscribers.get(visitorId)!.add(callback);
 
   const list = inMemoryTokens.filter((t) => t.visitorId === visitorId);
-  const active =
-    list.find((t) =>
-      [
-        TokenStatus.ISSUED,
-        TokenStatus.WAITING,
-        TokenStatus.CHECKED_IN,
-        TokenStatus.CALLED,
-        TokenStatus.IN_PROGRESS,
-      ].includes(t.status)
-    ) || null;
-  callback({ active, history: list });
+  callback(createVisitorTokenSnapshot(list));
 
   return () => {
     const set = visitorTokensSubscribers.get(visitorId);
