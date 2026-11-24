@@ -30,8 +30,14 @@ let inMemoryDepartments: Department[] = [...MOCK_DEPARTMENTS];
 let inMemoryServices: Service[] = [...MOCK_SERVICES];
 let inMemoryStaff: Staff[] = [...MOCK_STAFF];
 
-const deptSubscribers: Set<(depts: Department[]) => void> = new Set();
-const serviceSubscribers: Set<(services: Service[]) => void> = new Set();
+const deptSubscribers = new Map<
+  (depts: Department[]) => void,
+  { institutionId: string; branchId: string }
+>();
+const serviceSubscribers = new Map<
+  (services: Service[]) => void,
+  { institutionId: string; branchId: string }
+>();
 const staffSubscribers: Set<(staff: Staff[]) => void> = new Set();
 
 /**
@@ -83,13 +89,21 @@ export function listenDepartments(
       },
       (err) => {
         console.warn('[QueueLess DepartmentService] Error fetching departments, falling back:', err);
-        callback(inMemoryDepartments.filter((d) => d.institutionId === institutionId));
+        callback(
+          inMemoryDepartments.filter(
+            (d) => d.institutionId === institutionId && d.branchId === branchId
+          )
+        );
       }
     );
   }
 
-  deptSubscribers.add(callback);
-  callback(inMemoryDepartments.filter((d) => d.institutionId === institutionId));
+  deptSubscribers.set(callback, { institutionId, branchId });
+  callback(
+    inMemoryDepartments.filter(
+      (d) => d.institutionId === institutionId && d.branchId === branchId
+    )
+  );
   return () => {
     deptSubscribers.delete(callback);
   };
@@ -123,7 +137,13 @@ export async function createDepartment(deptData: Partial<Department>): Promise<D
   }
 
   inMemoryDepartments = [...inMemoryDepartments, newDept];
-  deptSubscribers.forEach((cb) => cb(inMemoryDepartments));
+  deptSubscribers.forEach(({ institutionId, branchId }, callback) =>
+    callback(
+      inMemoryDepartments.filter(
+        (d) => d.institutionId === institutionId && d.branchId === branchId
+      )
+    )
+  );
   return newDept;
 }
 
@@ -151,13 +171,21 @@ export function listenServices(
       },
       (err) => {
         console.warn('[QueueLess ServiceService] Error fetching services, falling back:', err);
-        callback(inMemoryServices.filter((s) => s.institutionId === institutionId));
+        callback(
+          inMemoryServices.filter(
+            (s) => s.institutionId === institutionId && s.branchId === branchId
+          )
+        );
       }
     );
   }
 
-  serviceSubscribers.add(callback);
-  callback(inMemoryServices.filter((s) => s.institutionId === institutionId));
+  serviceSubscribers.set(callback, { institutionId, branchId });
+  callback(
+    inMemoryServices.filter(
+      (s) => s.institutionId === institutionId && s.branchId === branchId
+    )
+  );
   return () => {
     serviceSubscribers.delete(callback);
   };
@@ -194,7 +222,13 @@ export async function createService(serviceData: Partial<Service>): Promise<Serv
   }
 
   inMemoryServices = [...inMemoryServices, newService];
-  serviceSubscribers.forEach((cb) => cb(inMemoryServices));
+  serviceSubscribers.forEach(({ institutionId, branchId }, callback) =>
+    callback(
+      inMemoryServices.filter(
+        (s) => s.institutionId === institutionId && s.branchId === branchId
+      )
+    )
+  );
   return newService;
 }
 

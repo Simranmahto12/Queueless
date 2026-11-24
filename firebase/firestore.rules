@@ -37,6 +37,29 @@ service cloud.firestore {
       );
     }
 
+    function isValidTokenCreate(tokenId) {
+      return request.resource.data.id == tokenId &&
+        request.resource.data.tokenId == tokenId &&
+        request.resource.data.visitorId is string &&
+        request.resource.data.institutionId is string &&
+        request.resource.data.branchId is string &&
+        request.resource.data.departmentId is string &&
+        request.resource.data.serviceId is string &&
+        request.resource.data.status == 'ISSUED';
+    }
+
+    function isVisitorCancellingOwnToken() {
+      return isSignedIn() &&
+        resource.data.visitorId == request.auth.uid &&
+        request.resource.data.visitorId == resource.data.visitorId &&
+        request.resource.data.id == resource.data.id &&
+        request.resource.data.tokenId == resource.data.tokenId &&
+        resource.data.status in ['ISSUED', 'WAITING', 'CHECKED_IN', 'CALLED', 'IN_PROGRESS'] &&
+        request.resource.data.status == 'CANCELLED' &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'cancelledAt', 'updatedAt', 'notes']);
+    }
+
     // ---------------------------------------------------------
     // Users Collection (Strict Role-Based Access Control)
     // ---------------------------------------------------------
@@ -119,15 +142,15 @@ service cloud.firestore {
         isStaffOf(resource.data.institutionId)
       );
 
-      // Authenticated users can issue a token
-      allow create: if isSignedIn() && (
-        request.resource.data.visitorId == request.auth.uid ||
+      // Each token is a separate document tied to its ID and authenticated owner.
+      allow create: if isSignedIn() && isValidTokenCreate(tokenId) && (
+        (request.resource.data.visitorId == request.auth.uid) ||
         isStaffOf(request.resource.data.institutionId)
       );
 
       // Visitors can cancel their own token; Staff can advance lifecycle
       allow update: if isSignedIn() && (
-        (resource.data.visitorId == request.auth.uid && request.resource.data.status == 'CANCELLED') ||
+        isVisitorCancellingOwnToken() ||
         isStaffOf(resource.data.institutionId)
       );
 

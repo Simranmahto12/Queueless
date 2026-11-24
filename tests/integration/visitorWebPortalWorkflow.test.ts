@@ -88,17 +88,44 @@ test('Visitor Web Portal & Admin Route Separation Workflow', async (t) => {
     assert.equal(token.status, TokenStatus.ISSUED);
     assert.ok(token.scheduledSlot.startTime);
 
-    // Verify visitor real-time listener receives the active token
-    let receivedActiveTokenNumber = '';
-    const unsubscribe = listenVisitorTokens(visitor.id, ({ active }) => {
-      if (active) receivedActiveTokenNumber = active.tokenNumber;
+    const secondToken = await bookToken({
+      institutionId: 'inst-metro-univ',
+      branchId: 'branch-metro-main',
+      departmentId: 'dept-univ-admissions',
+      serviceId: 'srv-univ-undergrad',
+      visitorId: visitor.id,
+      visitorName: visitor.displayName,
+      visitorEmail: visitor.email,
+      targetDate: '2026-11-25',
+      targetSlotTime: '11:00',
+      priority: TokenPriority.STANDARD,
     });
 
-    assert.equal(receivedActiveTokenNumber, token.tokenNumber);
-    unsubscribe();
+    assert.notEqual(secondToken.tokenId, token.tokenId);
+    assert.notEqual(secondToken.tokenNumber, token.tokenNumber);
 
-    // Visitor cancels token
+    // Verify the real-time listener receives every active booking for this visitor.
+    let receivedActiveTokenNumber = '';
+    let activeTokenNumbers: string[] = [];
+    let historyTokens: { tokenId: string; status: TokenStatus }[] = [];
+    const unsubscribe = listenVisitorTokens(visitor.id, ({ active, activeTokens, history }) => {
+      if (active) receivedActiveTokenNumber = active.tokenNumber;
+      activeTokenNumbers = activeTokens.map((activeToken) => activeToken.tokenNumber);
+      historyTokens = history;
+    });
+
+    assert.ok(
+      [token.tokenNumber, secondToken.tokenNumber].includes(receivedActiveTokenNumber)
+    );
+    assert.equal(activeTokenNumbers.length, 2);
+    assert.ok(activeTokenNumbers.includes(token.tokenNumber));
+    assert.ok(activeTokenNumbers.includes(secondToken.tokenNumber));
+
     await cancelToken(token.tokenId, 'Visitor rescheduled');
+    assert.deepEqual(activeTokenNumbers, [secondToken.tokenNumber]);
+    assert.equal(historyTokens.find((item) => item.tokenId === token.tokenId)?.status, TokenStatus.CANCELLED);
+    await cancelToken(secondToken.tokenId, 'Visitor rescheduled');
+    unsubscribe();
   });
 
   await t.test('7. Visitor requests password reset (/visitor/forgot-password)', async () => {
