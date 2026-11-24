@@ -13,7 +13,10 @@ import {
   Settings,
   CheckCircle2,
   ShieldAlert,
+  Tv,
+  Cast,
 } from 'lucide-react';
+import { TVConnectModal } from '../components/TVConnectModal';
 import {
   Token,
   TokenStatus,
@@ -75,6 +78,55 @@ export const PublicDisplayView: React.FC = () => {
     counterName: string;
     timestamp: number;
   } | null>(null);
+
+  // TV Connection & Optimization State
+  const [showTVConnectModal, setShowTVConnectModal] = useState<boolean>(() => {
+    return searchParams.get('connect') === 'tv';
+  });
+  const [isDistanceMode, setIsDistanceMode] = useState<boolean>(false);
+  const [isWakeLockActive, setIsWakeLockActive] = useState<boolean>(false);
+  const wakeLockSentinelRef = useRef<any>(null);
+
+  // Screen Wake Lock Toggle (Keeps Television from going to sleep)
+  const toggleWakeLock = async () => {
+    if ('wakeLock' in navigator) {
+      try {
+        if (wakeLockSentinelRef.current) {
+          await wakeLockSentinelRef.current.release();
+          wakeLockSentinelRef.current = null;
+          setIsWakeLockActive(false);
+        } else {
+          wakeLockSentinelRef.current = await (navigator as any).wakeLock.request('screen');
+          setIsWakeLockActive(true);
+        }
+      } catch (err) {
+        console.warn('Wake Lock request error:', err);
+      }
+    } else {
+      setIsWakeLockActive(!isWakeLockActive);
+    }
+  };
+
+  // Attempt Wake Lock on mount
+  useEffect(() => {
+    if ('wakeLock' in navigator) {
+      (navigator as any).wakeLock
+        .request('screen')
+        .then((sentinel: any) => {
+          wakeLockSentinelRef.current = sentinel;
+          setIsWakeLockActive(true);
+        })
+        .catch(() => {
+          // Non-blocking
+        });
+    }
+
+    return () => {
+      if (wakeLockSentinelRef.current) {
+        wakeLockSentinelRef.current.release().catch(() => {});
+      }
+    };
+  }, []);
 
   // Announcement Deduping Reference (Tracks announced call event IDs)
   const announcedCallIdsRef = useRef<Set<string>>(new Set());
@@ -336,6 +388,16 @@ export const PublicDisplayView: React.FC = () => {
             <span>{currentTime}</span>
           </div>
 
+          {/* Connect to Television Button */}
+          <button
+            onClick={() => setShowTVConnectModal(true)}
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-blue-600/30 hover:bg-blue-600 text-blue-200 hover:text-white border border-blue-500/40 text-xs font-bold transition shadow-sm group cursor-pointer"
+            title="Connect this display to a Television (Wireless Cast, Smart TV Browser, or HDMI)"
+          >
+            <Tv className="w-4 h-4 text-blue-400 group-hover:text-white transition-colors" />
+            <span className="hidden sm:inline">Connect to TV</span>
+          </button>
+
           {/* Fullscreen Button */}
           <button
             onClick={toggleFullscreen}
@@ -346,6 +408,16 @@ export const PublicDisplayView: React.FC = () => {
           </button>
         </div>
       </header>
+
+      {/* TV Connection Modal */}
+      <TVConnectModal
+        isOpen={showTVConnectModal}
+        onClose={() => setShowTVConnectModal(false)}
+        isDistanceMode={isDistanceMode}
+        onToggleDistanceMode={setIsDistanceMode}
+        isWakeLockActive={isWakeLockActive}
+        onToggleWakeLock={toggleWakeLock}
+      />
 
       {/* Voice Settings Popover */}
       {showAudioSettings && (
@@ -423,13 +495,23 @@ export const PublicDisplayView: React.FC = () => {
                   <div className="text-xs sm:text-sm uppercase tracking-wider text-slate-400 font-semibold">
                     Token Number
                   </div>
-                  <div className="text-6xl sm:text-8xl lg:text-9xl font-black font-mono tracking-tight text-white drop-shadow-[0_4px_24px_rgba(37,99,235,0.35)] animate-in zoom-in-95 duration-200">
+                  <div
+                    className={`${
+                      isDistanceMode
+                        ? 'text-7xl sm:text-9xl lg:text-[11rem]'
+                        : 'text-6xl sm:text-8xl lg:text-9xl'
+                    } font-black font-mono tracking-tight text-white drop-shadow-[0_4px_24px_rgba(37,99,235,0.35)] animate-in zoom-in-95 duration-200 transition-all`}
+                  >
                     {currentlyCalledToken.tokenNumber}
                   </div>
                 </div>
 
                 <div className="inline-block mt-4">
-                  <div className="px-6 sm:px-10 py-3 sm:py-5 rounded-2xl bg-emerald-500/20 border-2 border-emerald-400/80 text-emerald-300 font-extrabold text-2xl sm:text-4xl uppercase tracking-wider shadow-lg flex items-center justify-center gap-3">
+                  <div
+                    className={`px-6 sm:px-10 py-3 sm:py-5 rounded-2xl bg-emerald-500/20 border-2 border-emerald-400/80 text-emerald-300 font-extrabold ${
+                      isDistanceMode ? 'text-3xl sm:text-5xl' : 'text-2xl sm:text-4xl'
+                    } uppercase tracking-wider shadow-lg flex items-center justify-center gap-3 transition-all`}
+                  >
                     <ArrowRight className="w-7 h-7 sm:w-9 sm:h-9 text-emerald-400 animate-pulse" />
                     <span>
                       Proceed to{' '}
