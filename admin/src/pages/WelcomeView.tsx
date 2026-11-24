@@ -32,7 +32,7 @@ export const WelcomeView: React.FC = () => {
   } = useAdmin();
 
   return (
-    <div className="min-h-screen bg-appBg text-textMain flex flex-col font-sans selection:bg-primary/20">
+    <div className="flex-1 bg-appBg text-textMain flex flex-col font-sans selection:bg-primary/20">
       {/* Top Header */}
       <header className="bg-white border-b border-borderSoft sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -373,29 +373,6 @@ export const WelcomeView: React.FC = () => {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-borderSoft bg-white py-6 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-textMuted">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-navy">QueueLess</span>
-            <span>&copy; {new Date().getFullYear()} All rights reserved.</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <Link to="/display" className="hover:text-primary transition-colors">
-              Lobby TV Display
-            </Link>
-            <Link to="/kiosk" className="hover:text-primary transition-colors">
-              Walk-In Kiosk
-            </Link>
-            <Link to="/visitor/login" className="hover:text-primary transition-colors">
-              Visitor Portal
-            </Link>
-            <Link to="/admin/login" className="hover:text-navy transition-colors">
-              Institution Admin
-            </Link>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };

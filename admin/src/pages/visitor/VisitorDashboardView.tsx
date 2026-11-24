@@ -271,7 +271,7 @@ export const VisitorDashboardView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-appBg text-textMain flex flex-col font-sans selection:bg-primary/20">
+    <div className="flex-1 bg-appBg text-textMain flex flex-col font-sans selection:bg-primary/20">
       {/* Top Header */}
       <header className="bg-white border-b border-borderSoft sticky top-0 z-20 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">

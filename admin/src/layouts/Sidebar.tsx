@@ -47,7 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
     {
       id: 'counter-station',
       label: 'Counter Station',
-      icon: <PhoneCall className="w-4 h-4 text-emerald-600" />,
+      icon: <PhoneCall className="w-4 h-4 text-navy-600" />,
     },
     {
       id: 'queue',
@@ -90,30 +90,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
   const roleDisplay = currentUser?.role ? currentUser.role.replace(/_/g, ' ') : 'Administrator';
 
   return (
-    <aside className="w-64 border-r border-borderSoft bg-white flex flex-col justify-between select-none">
+    <aside className="w-[205px] min-w-[205px] border-r border-borderSoft bg-white flex flex-col justify-between select-none">
       <div>
         {/* Brand Header */}
-        <div className="p-5 border-b border-borderSoft flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-navy flex items-center justify-center text-white font-bold text-base shadow-subtle">
+        <div className="px-4 py-3.5 border-b border-borderSoft flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-md bg-navy flex items-center justify-center text-white font-bold text-sm shadow-subtle">
             Q
           </div>
           <div className="overflow-hidden">
-            <h1 className="font-bold text-textMain text-sm tracking-tight leading-none">QueueLess</h1>
-            <p className="text-[11px] text-textMuted font-medium truncate mt-1">
+            <h1 className="font-bold text-textMain text-xs tracking-tight leading-none">QueueLess</h1>
+            <p className="text-[10px] text-textMuted font-medium truncate mt-1">
               {currentInstitution.name}
             </p>
           </div>
         </div>
 
         {/* Navigation Items */}
-        <nav className="p-3 space-y-0.5">
+        <nav className="p-2 space-y-0.5">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-colors ${
                   isActive
                     ? 'bg-navy text-white shadow-subtle'
                     : 'text-textMuted hover:text-textMain hover:bg-slate-50'
@@ -143,9 +143,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
       </div>
 
       {/* Authenticated Profile Footer with Sign Out */}
-      <div className="p-3.5 border-t border-borderSoft bg-slate-50/50 flex items-center justify-between gap-2">
+      <div className="p-2.5 border-t border-borderSoft bg-slate-50/50 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-full bg-navy/10 text-navy font-bold text-xs flex items-center justify-center border border-navy/20 shrink-0">
+          <div className="w-7 h-7 rounded-full bg-navy/10 text-navy font-bold text-[10px] flex items-center justify-center border border-navy/20 shrink-0">
             {initials}
           </div>
           <div className="min-w-0 truncate">

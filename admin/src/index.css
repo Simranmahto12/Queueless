@@ -8,3 +8,32 @@ body {
   background-color: #F8FAFC;
   color: #0F172A;
 }
+
+.admin-shell {
+  position: relative;
+  z-index: 1;
+  height: calc(100vh - 154px);
+  margin-top: 90px;
+}
+
+.admin-shell::before {
+  content: '';
+  position: fixed;
+  z-index: -1;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 90px;
+  background: #142B4A;
+}
+
+@media (max-width: 767px) {
+  .admin-shell {
+    height: calc(100vh - 88px);
+    margin-top: 0;
+  }
+
+  .admin-shell::before {
+    display: none;
+  }
+}
