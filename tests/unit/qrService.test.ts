@@ -1,6 +1,11 @@
 import assert from 'node:assert';
 import test, { describe, it } from 'node:test';
-import { encodeQRPayload, decodeAndValidateQRPayload } from '../../shared/services/qrService';
+import {
+  encodeQRPayload,
+  decodeAndValidateQRPayload,
+  generateQRCodeSVG,
+  generateQRCodeDataURL,
+} from '../../shared/services/qrService';
 
 describe('QR Service Encoding & Verification', () => {
   it('should encode and decode a valid check-in QR payload', () => {
@@ -58,5 +63,23 @@ describe('QR Service Encoding & Verification', () => {
     const validation = decodeAndValidateQRPayload(tamperedBase64);
     assert.strictEqual(validation.isValid, false);
     assert.strictEqual(validation.errorCode, 'CHECKSUM_MISMATCH');
+  });
+
+  it('should generate valid standards-compliant SVG and DataURL QR codes', async () => {
+    const payload = encodeQRPayload({
+      tokenId: 'tok-qr-render-test',
+      tokenNumber: 'T-TEST-99',
+      institutionId: 'inst-1',
+      branchId: 'branch-1',
+    });
+
+    const svgString = await generateQRCodeSVG(payload);
+    assert.ok(svgString.includes('<svg'), 'SVG QR code should contain opening svg tag');
+    assert.ok(svgString.includes('</svg>'), 'SVG QR code should contain closing svg tag');
+    assert.ok(svgString.includes('viewBox='), 'SVG QR code should specify viewBox');
+
+    const dataUrl = await generateQRCodeDataURL(payload);
+    assert.ok(dataUrl.startsWith('data:image/png;base64,'), 'DataURL should be a base64 PNG');
+    assert.ok(dataUrl.length > 100, 'DataURL should have valid image payload length');
   });
 });

@@ -24,11 +24,14 @@ import {
   AlertSeverity,
   AlertType,
   TokenStatus,
+  AuditAction,
+  UserRole,
 } from '../../types/enums';
 import { decodeAndValidateQRPayload } from '../qrService';
 import { calculateZoneOccupancy } from '../../algorithms/occupancyCalculator';
 import { MOCK_ZONES, MOCK_ALERTS } from '../mockData';
 import { updateInMemoryTokenCheckIn } from './tokenService';
+import { recordAuditLog } from './auditService';
 
 // Fallback in-memory state
 let inMemoryZones: Zone[] = [...MOCK_ZONES];
@@ -98,7 +101,7 @@ export async function checkInVisitorWithQR(params: {
   const now = new Date().toISOString();
 
   if (db && isConfigured) {
-    return await runTransaction(db, async (transaction) => {
+    const txRes = await runTransaction(db, async (transaction) => {
       const tokenRef = doc(db, 'tokens', tokenId);
       const tokenSnap = await transaction.get(tokenRef);
 
@@ -193,6 +196,25 @@ export async function checkInVisitorWithQR(params: {
         zone: { ...zoneData, currentOccupancy: newOccupancy, occupancyStatus: occCalc.status },
       };
     });
+
+    if (txRes.success) {
+      await recordAuditLog({
+        institutionId: expectedInstitutionId,
+        branchId: expectedBranchId,
+        action: AuditAction.TOKEN_STATUS_CHANGE,
+        performedByUserId: verifiedByStaffId || txRes.token?.visitorId || 'visitor-on-site',
+        performedByRole: verifiedByStaffId ? UserRole.COUNTER_STAFF : UserRole.VISITOR,
+        targetEntity: 'TOKEN',
+        targetEntityId: tokenId,
+        changes: {
+          before: { status: TokenStatus.ISSUED, checkedInAt: null },
+          after: { status: TokenStatus.CHECKED_IN, checkedInAt: now, zoneId: targetZoneId },
+        },
+        details: `QR Code check-in verified. Single-use QR code expired and retired. Visitor checked in to zone ${targetZoneId}.`,
+      });
+    }
+
+    return txRes;
   }
 
   // Fallback transaction
@@ -262,6 +284,21 @@ export async function checkInVisitorWithQR(params: {
   }
 
   notifyZoneChange();
+
+  await recordAuditLog({
+    institutionId: expectedInstitutionId,
+    branchId: expectedBranchId,
+    action: AuditAction.TOKEN_STATUS_CHANGE,
+    performedByUserId: verifiedByStaffId || 'visitor-user',
+    performedByRole: verifiedByStaffId ? UserRole.COUNTER_STAFF : UserRole.VISITOR,
+    targetEntity: 'TOKEN',
+    targetEntityId: tokenId,
+    changes: {
+      before: { status: TokenStatus.ISSUED, checkedInAt: null },
+      after: { status: TokenStatus.CHECKED_IN, checkedInAt: now, zoneId: targetZoneId },
+    },
+    details: `QR Code check-in verified. Single-use QR pass expired and retired. Visitor admitted to waiting zone ${targetZone.name || targetZoneId}. Lobby occupancy updated (${newOccupancy}/${targetZone.maxCapacity}).`,
+  });
 
   return {
     success: true,

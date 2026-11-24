@@ -7,6 +7,7 @@
 import { collection, addDoc } from 'firebase/firestore';
 import { getFirebaseServices } from './firebaseConfig';
 import { AuditAction, UserRole } from '../../types/enums';
+import { recordAuditLog } from './auditService';
 
 export interface NotificationDispatchRequest {
   channel: 'SMS' | 'WHATSAPP';
@@ -71,27 +72,20 @@ export async function dispatchTicketNotification(
 
   const isConfigured = req.channel === 'SMS' ? isTwilioConfigured : isWhatsAppConfigured;
 
-  // Log dispatch attempt to Firestore auditLogs if DB is configured
-  const { db, isConfigured: isFirebaseLive } = getFirebaseServices();
-  if (db && isFirebaseLive) {
-    try {
-      await addDoc(collection(db, 'auditLogs'), {
-        action: AuditAction.TOKEN_STATUS_CHANGE,
-        entityType: 'NOTIFICATION',
-        entityId: req.tokenNumber,
-        performedByRole: UserRole.VISITOR,
-        details: {
-          channel: req.channel,
-          phoneMasked: req.recipientPhone.slice(-4).padStart(req.recipientPhone.length, '*'),
-          institutionId: req.institutionId,
-          branchId: req.branchId,
-          gatewayConfigured: isConfigured,
-        },
-        timestamp: now,
-      });
-    } catch {
-      // Non-blocking for audit failure
-    }
+  // Log dispatch attempt to system history & auditLogs
+  try {
+    await recordAuditLog({
+      institutionId: req.institutionId,
+      branchId: req.branchId,
+      action: AuditAction.TOKEN_STATUS_CHANGE,
+      performedByUserId: 'system-notification-dispatcher',
+      performedByRole: UserRole.VISITOR,
+      targetEntity: 'NOTIFICATION',
+      targetEntityId: req.tokenNumber,
+      details: `${req.channel} dispatch: Sent ticket details (${req.tokenNumber}, Dept: ${req.departmentName}, Est. Wait: ${req.estimatedWaitMinutes}m) to ${req.recipientPhone}. Gateway: ${isConfigured ? 'LIVE_TWILIO' : 'SIMULATED_LOCAL'}.`,
+    });
+  } catch {
+    // Non-blocking for audit failure
   }
 
   if (isConfigured) {

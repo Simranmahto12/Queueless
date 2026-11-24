@@ -26,6 +26,7 @@ import { calculateSmartArrivalSlot } from '../../algorithms/slotAllocation';
 import { estimateWaitTime, sortQueueTokens } from '../../algorithms/queueEstimator';
 import { encodeQRPayload } from '../qrService';
 import { MOCK_TOKENS, MOCK_COUNTERS } from '../mockData';
+import { recordAuditLog } from './auditService';
 
 // In-Memory Live Fallback Store
 let inMemoryTokens: Token[] = [...MOCK_TOKENS];
@@ -205,28 +206,35 @@ export async function bookToken(request: CreateTokenRequest): Promise<Token> {
 
   if (db && isConfigured) {
     await setDoc(doc(db, 'tokens', tokenId), newToken);
-    // Write audit log
-    const logId = `log-${Date.now()}`;
-    const audit: AuditLog = {
-      id: logId,
-      logId,
-      institutionId: request.institutionId,
-      branchId: request.branchId,
-      action: AuditAction.TOKEN_CREATED,
-      performedByUserId: request.visitorId || 'guest-visitor',
-      performedByRole: UserRole.VISITOR,
-      targetEntity: 'TOKEN',
-      targetEntityId: tokenId,
-      createdAt: nowISO,
-      updatedAt: nowISO,
-    };
-    await setDoc(doc(db, 'auditLogs', logId), audit);
-    return newToken;
+  } else {
+    // Fallback in-memory
+    inMemoryTokens = [newToken, ...inMemoryTokens];
+    notifyTokenChange();
   }
 
-  // Fallback
-  inMemoryTokens = [newToken, ...inMemoryTokens];
-  notifyTokenChange();
+  // Record audit log in system history (persisted to Firestore & local in-memory store)
+  await recordAuditLog({
+    institutionId: request.institutionId,
+    branchId: request.branchId,
+    action: AuditAction.TOKEN_CREATED,
+    performedByUserId: request.visitorId || 'guest-visitor',
+    performedByRole: UserRole.VISITOR,
+    targetEntity: 'TOKEN',
+    targetEntityId: tokenId,
+    details: `Token ${tokenNumber} booked by visitor (${request.visitorName || 'Visitor'}, ${request.visitorPhone || 'No Phone'}) for department ${request.departmentId}. Single-use cryptographic QR code generated.`,
+    changes: {
+      after: {
+        tokenNumber,
+        status: TokenStatus.ISSUED,
+        visitorName: request.visitorName,
+        visitorPhone: request.visitorPhone,
+        departmentId: request.departmentId,
+        slotDate: request.targetDate,
+        slotTime: request.targetSlotTime,
+      },
+    },
+  });
+
   return newToken;
 }
 
@@ -743,6 +751,7 @@ export async function cancelToken(tokenId: string, reason?: string): Promise<voi
     return;
   }
 
+  const targetToken = inMemoryTokens.find((t) => t.tokenId === tokenId);
   inMemoryTokens = inMemoryTokens.map((t) =>
     t.tokenId === tokenId
       ? {
@@ -755,6 +764,21 @@ export async function cancelToken(tokenId: string, reason?: string): Promise<voi
       : t
   );
   notifyTokenChange();
+
+  await recordAuditLog({
+    institutionId: targetToken?.institutionId || 'system',
+    branchId: targetToken?.branchId,
+    action: AuditAction.TOKEN_STATUS_CHANGE,
+    performedByUserId: targetToken?.visitorId || 'visitor',
+    performedByRole: UserRole.VISITOR,
+    targetEntity: 'TOKEN',
+    targetEntityId: tokenId,
+    details: `Token ${targetToken?.tokenNumber || tokenId} cancelled: ${reason || 'Cancelled by visitor'}.`,
+    changes: {
+      before: { status: targetToken?.status },
+      after: { status: TokenStatus.CANCELLED },
+    },
+  });
 }
 
 /**

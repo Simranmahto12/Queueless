@@ -30,6 +30,7 @@ import {
   dispatchTicketNotification,
   validatePhoneNumber,
 } from '@queueless/shared';
+import { QRCodeDisplay } from '../components/QRCodeDisplay';
 
 export const WalkInKioskView: React.FC = () => {
   const { institutionId, branchId } = useParams<{ institutionId?: string; branchId?: string }>();
@@ -553,21 +554,11 @@ export const WalkInKioskView: React.FC = () => {
               {/* QR Code Pass */}
               <div className="flex flex-col items-center justify-center pt-2">
                 <div className="p-3 bg-white rounded-xl border border-slate-300 shadow-sm mb-2">
-                  <svg className="w-36 h-36 text-slate-900" viewBox="0 0 100 100" fill="currentColor">
-                    <rect x="5" y="5" width="28" height="28" rx="4" fill="none" stroke="currentColor" strokeWidth="6" />
-                    <rect x="12" y="12" width="14" height="14" rx="2" />
-                    <rect x="67" y="5" width="28" height="28" rx="4" fill="none" stroke="currentColor" strokeWidth="6" />
-                    <rect x="74" y="12" width="14" height="14" rx="2" />
-                    <rect x="5" y="67" width="28" height="28" rx="4" fill="none" stroke="currentColor" strokeWidth="6" />
-                    <rect x="12" y="74" width="14" height="14" rx="2" />
-                    <rect x="42" y="10" width="7" height="7" rx="1" />
-                    <rect x="52" y="10" width="7" height="7" rx="1" />
-                    <rect x="42" y="42" width="16" height="16" rx="2" />
-                    <rect x="67" y="42" width="7" height="7" rx="1" />
-                    <rect x="83" y="42" width="7" height="7" rx="1" />
-                    <rect x="42" y="67" width="7" height="7" rx="1" />
-                    <rect x="67" y="67" width="12" height="7" rx="1" />
-                  </svg>
+                  <QRCodeDisplay
+                    value={generatedToken.qrCodeValue || generatedToken.tokenId}
+                    size={144}
+                    alt={`Walk-in ticket QR pass for ${generatedToken.tokenNumber}`}
+                  />
                 </div>
                 <span className="font-mono text-xs font-semibold text-slate-600">
                   {generatedToken.tokenId}

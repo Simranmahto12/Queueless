@@ -9,3 +9,4 @@ export * from './occupancyService';
 export * from './institutionService';
 export * from './seedService';
 export * from './notificationService';
+export * from './auditService';

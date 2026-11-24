@@ -1,7 +1,57 @@
 /**
  * QR Code Generation & Verification Utility
- * Provides secure encoding and decoding of physical/digital check-in payloads.
+ * Provides secure encoding and decoding of physical/digital check-in payloads,
+ * as well as standards-compliant 2D matrix barcode rendering (SVG & DataURL).
  */
+
+import QRCode from 'qrcode';
+
+// Support both ESM and CJS bundler outputs
+const qrLib = ((QRCode as unknown as { default?: typeof QRCode })?.default || QRCode) as typeof QRCode;
+
+export interface QRCodeRenderOptions {
+  margin?: number;
+  width?: number;
+  color?: {
+    dark?: string;
+    light?: string;
+  };
+}
+
+/**
+ * Generates a valid, standards-compliant SVG string representing the QR code for a payload.
+ */
+export async function generateQRCodeSVG(
+  text: string,
+  options?: QRCodeRenderOptions
+): Promise<string> {
+  return qrLib.toString(text, {
+    type: 'svg',
+    margin: options?.margin ?? 1,
+    width: options?.width ?? 200,
+    color: {
+      dark: options?.color?.dark || '#0f172a',
+      light: options?.color?.light || '#ffffff',
+    },
+  });
+}
+
+/**
+ * Generates an image Data URL (PNG base64) for the QR code payload.
+ */
+export async function generateQRCodeDataURL(
+  text: string,
+  options?: QRCodeRenderOptions
+): Promise<string> {
+  return qrLib.toDataURL(text, {
+    margin: options?.margin ?? 1,
+    width: options?.width ?? 240,
+    color: {
+      dark: options?.color?.dark || '#0f172a',
+      light: options?.color?.light || '#ffffff',
+    },
+  });
+}
 
 export interface QRPayload {
   version: number;

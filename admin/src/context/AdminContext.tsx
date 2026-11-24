@@ -49,6 +49,8 @@ import {
   simulateFootfall as simulateFootfallBackend,
   checkInVisitorWithQR,
   checkOutVisitor,
+  AuditLog,
+  listenAuditLogs,
 } from '@queueless/shared';
 
 type FirebaseConnectionHealth = 'CONNECTING' | 'CONNECTED' | 'OFFLINE' | 'ERROR';
@@ -100,6 +102,7 @@ interface AdminContextType {
   tokens: Token[];
   staff: Staff[];
   alerts: Alert[];
+  auditLogs: AuditLog[];
   analytics: typeof MOCK_ANALYTICS;
   toasts: ToastMessage[];
   addToast: (type: ToastMessage['type'], message: string) => void;
@@ -143,6 +146,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [tokens, setTokens] = useState<Token[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [connectionState, setConnectionState] = useState<FirebaseConnectionState>('STANDALONE_FALLBACK');
   const [connectionHealth, setConnectionHealth] = useState<FirebaseConnectionHealth>('CONNECTING');
@@ -197,6 +201,10 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setStaff(newStaff);
     });
 
+    const unsubAudit = listenAuditLogs(instId, (newAuditLogs) => {
+      setAuditLogs(newAuditLogs);
+    });
+
     return () => {
       unsubTokens();
       unsubCounters();
@@ -205,6 +213,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       unsubDepts();
       unsubServices();
       unsubStaff();
+      unsubAudit();
     };
   }, [currentInstitution.institutionId, currentBranch.branchId]);
 
@@ -527,6 +536,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       tokens,
       staff,
       alerts,
+      auditLogs,
       analytics: MOCK_ANALYTICS,
       toasts,
       addToast,

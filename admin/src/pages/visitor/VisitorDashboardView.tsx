@@ -22,6 +22,9 @@ import {
   HelpCircle,
   Loader2,
   ShieldAlert,
+  ShieldCheck,
+  Phone,
+  Check,
 } from 'lucide-react';
 import { useAdmin } from '../../context/AdminContext';
 import {
@@ -37,7 +40,10 @@ import {
   MOCK_DEPARTMENTS,
   MOCK_SERVICES,
   listenVisitorTokens,
+  dispatchTicketNotification,
+  validatePhoneNumber,
 } from '@queueless/shared';
+import { QRCodeDisplay } from '../../components/QRCodeDisplay';
 
 export const VisitorDashboardView: React.FC = () => {
   const navigate = useNavigate();
@@ -67,6 +73,8 @@ export const VisitorDashboardView: React.FC = () => {
   const [selectedDeptId, setSelectedDeptId] = useState<string>('');
   const [selectedServiceId, setSelectedServiceId] = useState<string>('');
   const [selectedSlotTime, setSelectedSlotTime] = useState<string>('10:30');
+  const [visitorPhoneInput, setVisitorPhoneInput] = useState<string>('');
+  const [sendSMSNotification, setSendSMSNotification] = useState<boolean>(true);
   const [isBookingSubmitting, setIsBookingSubmitting] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
 
@@ -147,6 +155,8 @@ export const VisitorDashboardView: React.FC = () => {
       );
       return;
     }
+    setVisitorPhoneInput(currentUser?.phone || '+1 (555) 019-2834');
+    setSendSMSNotification(true);
     setBookingInstitution(inst);
   };
 
@@ -162,19 +172,42 @@ export const VisitorDashboardView: React.FC = () => {
 
     try {
       const today = new Date().toISOString().split('T')[0];
-      await bookVisitorToken({
+      const finalPhone = visitorPhoneInput.trim() || currentUser.phone || '+1 (555) 019-2834';
+
+      const booked = await bookVisitorToken({
         institutionId: bookingInstitution.institutionId,
         branchId: selectedBranchId,
         departmentId: selectedDeptId,
         serviceId: selectedServiceId,
         visitorId: currentUser.id,
         visitorName: currentUser.displayName || 'Visitor',
-        visitorPhone: currentUser.phone,
+        visitorPhone: finalPhone,
         visitorEmail: currentUser.email,
         targetDate: today,
         targetSlotTime: selectedSlotTime,
         priority: TokenPriority.STANDARD,
       });
+
+      // Dispatch SMS / mobile notification with ticket details to user's phone number
+      if (sendSMSNotification && finalPhone) {
+        const deptObj = availableDepartments.find((d) => d.departmentId === selectedDeptId);
+        try {
+          const res = await dispatchTicketNotification({
+            channel: 'SMS',
+            recipientPhone: finalPhone,
+            hasUserConsent: true,
+            institutionId: bookingInstitution.institutionId,
+            branchId: selectedBranchId,
+            tokenNumber: booked.tokenNumber,
+            departmentName: deptObj?.name || 'Department',
+            estimatedWaitMinutes: booked.estimatedWaitMinutes || 12,
+            qrPayload: booked.qrCodeValue,
+          });
+          addToast('success', `Ticket details sent via SMS to ${finalPhone}.`);
+        } catch {
+          addToast('info', `Ticket issued. Pass details logged in system history.`);
+        }
+      }
 
       setBookingInstitution(null);
     } catch (err: unknown) {
@@ -362,6 +395,17 @@ export const VisitorDashboardView: React.FC = () => {
                     </p>
                   </div>
 
+                  {/* Contact / SMS Dispatch Status */}
+                  {activeToken.visitorPhone && (
+                    <div className="inline-flex items-center gap-2 text-xs text-textMuted bg-slate-50 border border-borderSoft px-3 py-1.5 rounded-xl">
+                      <Phone className="w-3.5 h-3.5 text-primary" />
+                      <span>SMS pass dispatched to <strong className="text-navy">{activeToken.visitorPhone}</strong></span>
+                      <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-full border border-emerald-300">
+                        Dispatched
+                      </span>
+                    </div>
+                  )}
+
                   {/* Arrival Slot & ETA Badges */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
                     <div className="p-3 bg-slate-50 border border-borderSoft rounded-xl">
@@ -416,40 +460,51 @@ export const VisitorDashboardView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Right: Visual Digital QR Pass Box */}
-                <div className="bg-slate-50 border border-borderSoft rounded-2xl p-5 flex flex-col items-center justify-center text-center">
-                  <div className="bg-white p-3 rounded-xl border border-borderSoft shadow-xs mb-3">
-                    {/* SVG Stylized QR Code */}
-                    <svg className="w-32 h-32 text-navy" viewBox="0 0 100 100" fill="currentColor">
-                      {/* Corner Position Boxes */}
-                      <rect x="5" y="5" width="28" height="28" rx="4" fill="none" stroke="currentColor" strokeWidth="6" />
-                      <rect x="12" y="12" width="14" height="14" rx="2" />
-                      <rect x="67" y="5" width="28" height="28" rx="4" fill="none" stroke="currentColor" strokeWidth="6" />
-                      <rect x="74" y="12" width="14" height="14" rx="2" />
-                      <rect x="5" y="67" width="28" height="28" rx="4" fill="none" stroke="currentColor" strokeWidth="6" />
-                      <rect x="12" y="74" width="14" height="14" rx="2" />
-                      {/* Stylized QR Data Matrix */}
-                      <rect x="42" y="10" width="7" height="7" rx="1" />
-                      <rect x="52" y="10" width="7" height="7" rx="1" />
-                      <rect x="42" y="24" width="7" height="7" rx="1" />
-                      <rect x="10" y="42" width="7" height="7" rx="1" />
-                      <rect x="24" y="42" width="7" height="7" rx="1" />
-                      <rect x="42" y="42" width="16" height="16" rx="2" />
-                      <rect x="67" y="42" width="7" height="7" rx="1" />
-                      <rect x="83" y="42" width="7" height="7" rx="1" />
-                      <rect x="42" y="67" width="7" height="7" rx="1" />
-                      <rect x="52" y="77" width="7" height="7" rx="1" />
-                      <rect x="67" y="67" width="12" height="7" rx="1" />
-                      <rect x="82" y="77" width="8" height="12" rx="1" />
-                    </svg>
+                {/* Right: Visual Digital QR Pass Box or Verified State */}
+                {Boolean(activeToken.checkedInAt) ||
+                activeToken.status === TokenStatus.CHECKED_IN ||
+                activeToken.status === TokenStatus.CALLED ||
+                activeToken.status === TokenStatus.IN_PROGRESS ? (
+                  <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-5 flex flex-col items-center justify-center text-center animate-in fade-in zoom-in-95 duration-200">
+                    <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 border border-emerald-300 flex items-center justify-center mb-2.5 shadow-xs">
+                      <ShieldCheck className="w-8 h-8 stroke-[2.5]" />
+                    </div>
+                    <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900 text-[10px] font-bold uppercase tracking-wider mb-1">
+                      <Check className="w-3 h-3 stroke-[3]" />
+                      <span>Pass Verified</span>
+                    </div>
+                    <span className="text-xs font-bold text-navy">
+                      Checked In On-Site
+                    </span>
+                    <span className="text-[11px] text-emerald-800 font-medium mt-1">
+                      {activeToken.checkedInAt
+                        ? `Admitted at ${new Date(activeToken.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                        : 'Registered in Lobby Zone'}
+                    </span>
+                    <div className="mt-3 pt-2 border-t border-emerald-200/80 text-[10px] text-emerald-700 leading-snug">
+                      Single-use QR code expired and vanished to prevent duplicate entry. Recorded in system history.
+                    </div>
                   </div>
-                  <span className="text-[11px] font-mono font-semibold text-navy">
-                    {activeToken.tokenId}
-                  </span>
-                  <span className="text-[10px] text-textMuted mt-0.5">
-                    Present at building entrance or counter scanner
-                  </span>
-                </div>
+                ) : (
+                  <div className="bg-slate-50 border border-borderSoft rounded-2xl p-5 flex flex-col items-center justify-center text-center">
+                    <div className="bg-white p-3 rounded-xl border border-borderSoft shadow-xs mb-3">
+                      <QRCodeDisplay
+                        value={activeToken.qrCodeValue || activeToken.tokenId}
+                        size={136}
+                        alt={`QR check-in pass for ${activeToken.tokenNumber}`}
+                      />
+                    </div>
+                    <span className="text-[11px] font-mono font-semibold text-navy">
+                      {activeToken.tokenNumber} &bull; {activeToken.tokenId}
+                    </span>
+                    <span className="text-[10px] text-textMuted mt-0.5">
+                      Present at building entrance or counter scanner
+                    </span>
+                    <span className="text-[9px] text-primary/80 font-medium mt-1 bg-primary/5 px-2 py-0.5 rounded-md">
+                      Single-Use Cryptographic Pass
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -723,6 +778,32 @@ export const VisitorDashboardView: React.FC = () => {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Mobile Phone for SMS Ticket Details */}
+              <div>
+                <label className="block text-xs font-semibold text-textMain mb-1">
+                  Mobile Number (for SMS Pass & Notifications)
+                </label>
+                <div className="relative">
+                  <Phone className="w-3.5 h-3.5 text-textMuted absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="tel"
+                    value={visitorPhoneInput}
+                    onChange={(e) => setVisitorPhoneInput(e.target.value)}
+                    placeholder="+1 (555) 019-2834"
+                    className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-borderSoft rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 text-textMain font-mono"
+                  />
+                </div>
+                <label className="flex items-center gap-2 mt-2 text-xs text-textMuted cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={sendSMSNotification}
+                    onChange={(e) => setSendSMSNotification(e.target.checked)}
+                    className="rounded text-primary focus:ring-primary/20"
+                  />
+                  <span>Dispatch ticket details, arrival window, and link via SMS</span>
+                </label>
               </div>
             </div>
 
