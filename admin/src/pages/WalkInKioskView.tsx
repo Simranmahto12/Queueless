@@ -233,7 +233,7 @@ export const WalkInKioskView: React.FC = () => {
         {currentStep > 1 && (
           <button
             onClick={handleResetKiosk}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition text-xs font-semibold border border-slate-700"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-blue-300 hover:bg-slate-700 hover:border-blue-500/50 transition text-xs font-semibold border border-slate-700"
           >
             <RotateCcw className="w-4 h-4" />
             <span>Reset Kiosk</span>
@@ -283,7 +283,7 @@ export const WalkInKioskView: React.FC = () => {
                     <h3 className="text-xl font-bold text-white group-hover:text-blue-300 transition">
                       {dept.name}
                     </h3>
-                    <p className="text-xs text-slate-400">Tap to inspect services</p>
+                    <p className="text-xs text-slate-400 group-hover:text-slate-200 transition-colors">Tap to inspect services</p>
                   </div>
                   <ChevronRight className="w-6 h-6 text-slate-500 group-hover:text-blue-400 group-hover:translate-x-1 transition" />
                 </button>
@@ -321,12 +321,12 @@ export const WalkInKioskView: React.FC = () => {
                     <h3 className="text-lg font-bold text-white group-hover:text-blue-300 transition mb-1">
                       {srv.name}
                     </h3>
-                    <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                    <p className="text-xs text-slate-400 group-hover:text-slate-200 line-clamp-2 leading-relaxed transition-colors">
                       {srv.description || 'Standard institutional service desk.'}
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-4 text-xs text-slate-400 pt-4 mt-4 border-t border-slate-700/60">
+                  <div className="flex items-center gap-4 text-xs text-slate-400 group-hover:text-slate-300 pt-4 mt-4 border-t border-slate-700/60 transition-colors">
                     <div className="flex items-center gap-1.5">
                       <Clock className="w-4 h-4 text-blue-400" />
                       <span>~{srv.estimatedDurationMinutes} mins duration</span>
@@ -339,7 +339,7 @@ export const WalkInKioskView: React.FC = () => {
             <div className="text-center pt-4">
               <button
                 onClick={() => setCurrentStep(1)}
-                className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition"
+                className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-blue-300 transition"
               >
                 <ArrowLeft className="w-4 h-4" />
                 <span>Choose a different department</span>
@@ -376,7 +376,7 @@ export const WalkInKioskView: React.FC = () => {
                     className={`py-3.5 px-4 rounded-xl text-xs font-bold border-2 transition ${
                       isAnonymous
                         ? 'bg-blue-500/20 text-blue-300 border-blue-500'
-                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
+                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-blue-300 hover:border-blue-500/60'
                     }`}
                   >
                     Quick Walk-In (No Name)
@@ -387,7 +387,7 @@ export const WalkInKioskView: React.FC = () => {
                     className={`py-3.5 px-4 rounded-xl text-xs font-bold border-2 transition ${
                       !isAnonymous
                         ? 'bg-blue-500/20 text-blue-300 border-blue-500'
-                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
+                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-blue-300 hover:border-blue-500/60'
                     }`}
                   >
                     Enter My Name
@@ -578,7 +578,7 @@ export const WalkInKioskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={handlePrint}
-                  className="flex-1 py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700 transition flex items-center justify-center gap-2"
+                  className="flex-1 py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 hover:text-blue-300 hover:border-blue-500/50 text-white text-xs font-bold border border-slate-700 transition flex items-center justify-center gap-2"
                 >
                   <Printer className="w-4 h-4" />
                   <span>Print Ticket</span>
