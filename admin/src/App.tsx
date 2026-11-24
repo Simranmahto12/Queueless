@@ -23,6 +23,7 @@ import { VisitorDashboardView } from './pages/visitor/VisitorDashboardView';
 import { PublicDisplayView } from './pages/PublicDisplayView';
 import { WalkInKioskView } from './pages/WalkInKioskView';
 import { CounterStationView } from './pages/CounterStationView';
+import { PublicPassView } from './pages/PublicPassView';
 import { NotFoundView } from './pages/NotFoundView';
 
 // 10 Admin Views
@@ -214,6 +215,10 @@ export const App: React.FC = () => {
           <Route path="/kiosk" element={<WalkInKioskView />} />
           <Route path="/kiosk/:institutionId" element={<WalkInKioskView />} />
           <Route path="/kiosk/:institutionId/:branchId" element={<WalkInKioskView />} />
+
+          {/* Public Mobile Pass & Phone Scan Check-In (No login required) */}
+          <Route path="/pass" element={<PublicPassView />} />
+          <Route path="/ticket/:tokenId" element={<PublicPassView />} />
 
           {/* Visitor Routes */}
           <Route path="/visitor/login" element={<VisitorLoginRoute />} />

@@ -91,6 +91,11 @@ export const WalkInKioskView: React.FC = () => {
   // Generated Ticket Result
   const [generatedToken, setGeneratedToken] = useState<Token | null>(null);
   const [notificationStatus, setNotificationStatus] = useState<string | null>(null);
+  const [notificationDetails, setNotificationDetails] = useState<{
+    whatsappUrl?: string;
+    smsUrl?: string;
+    smsBody?: string;
+  } | null>(null);
 
   // Auto-reset countdown for kiosk after ticket generation
   const [resetCountdown, setResetCountdown] = useState<number>(30);
@@ -193,6 +198,11 @@ export const WalkInKioskView: React.FC = () => {
             qrPayload: token.qrCodeValue,
           });
           setNotificationStatus(res.message);
+          setNotificationDetails({
+            whatsappUrl: res.whatsappUrl,
+            smsUrl: res.smsUrl,
+            smsBody: res.smsBody,
+          });
         } catch {
           setNotificationStatus('Pass generated. Mobile notification gateway is offline.');
         }
@@ -555,17 +565,37 @@ export const WalkInKioskView: React.FC = () => {
               <div className="flex flex-col items-center justify-center pt-2">
                 <div className="p-3 bg-white rounded-xl border border-slate-300 shadow-sm mb-2">
                   <QRCodeDisplay
-                    value={generatedToken.qrCodeValue || generatedToken.tokenId}
+                    value={
+                      `http://192.168.1.197:5175/pass?id=${encodeURIComponent(generatedToken.tokenId)}&data=${encodeURIComponent(generatedToken.qrCodeValue || '')}`
+                    }
                     size={144}
                     alt={`Walk-in ticket QR pass for ${generatedToken.tokenNumber}`}
                   />
                 </div>
+                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold mb-1">
+                  <Smartphone className="w-3 h-3" />
+                  <span>Scan with Phone Camera</span>
+                </div>
                 <span className="font-mono text-xs font-semibold text-slate-600">
-                  {generatedToken.tokenId}
+                  {generatedToken.tokenNumber} &bull; {generatedToken.tokenId}
                 </span>
-                <span className="text-[11px] text-slate-400 mt-0.5">
-                  Scan at desk or lobby display to verify check-in
+                <span className="text-[11px] text-slate-500 mt-0.5">
+                  Point phone camera at this QR code to take your pass on your phone
                 </span>
+
+                {notificationDetails?.whatsappUrl && (
+                  <div className="mt-2.5">
+                    <a
+                      href={notificationDetails.whatsappUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>Send to My WhatsApp</span>
+                    </a>
+                  </div>
+                )}
               </div>
 
               {/* Notification Banner */}

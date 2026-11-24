@@ -5,6 +5,7 @@ import {
   decodeAndValidateQRPayload,
   generateQRCodeSVG,
   generateQRCodeDataURL,
+  buildPassUrl,
 } from '../../shared/services/qrService';
 
 describe('QR Service Encoding & Verification', () => {
@@ -81,5 +82,30 @@ describe('QR Service Encoding & Verification', () => {
     const dataUrl = await generateQRCodeDataURL(payload);
     assert.ok(dataUrl.startsWith('data:image/png;base64,'), 'DataURL should be a base64 PNG');
     assert.ok(dataUrl.length > 100, 'DataURL should have valid image payload length');
+  });
+
+  it('should build authentic smartphone-openable pass URLs and decode them seamlessly', () => {
+    const payload = encodeQRPayload({
+      tokenId: 'tok-phone-scan-test',
+      tokenNumber: 'T-SCAN-101',
+      institutionId: 'inst-apex-health',
+      branchId: 'branch-apex-main',
+    });
+
+    const passUrl = buildPassUrl({
+      baseUrl: 'http://192.168.1.197:5175',
+      tokenId: 'tok-phone-scan-test',
+      tokenNumber: 'T-SCAN-101',
+      qrPayload: payload,
+    });
+
+    assert.ok(passUrl.startsWith('http://192.168.1.197:5175/pass?id=tok-phone-scan-test'));
+    assert.ok(passUrl.includes('data='));
+
+    // Validate that decodeAndValidateQRPayload extracts the payload from the full URL
+    const decodedFromUrl = decodeAndValidateQRPayload(passUrl, 'inst-apex-health', 'branch-apex-main');
+    assert.strictEqual(decodedFromUrl.isValid, true);
+    assert.strictEqual(decodedFromUrl.payload?.tokenId, 'tok-phone-scan-test');
+    assert.strictEqual(decodedFromUrl.payload?.tokenNumber, 'T-SCAN-101');
   });
 });

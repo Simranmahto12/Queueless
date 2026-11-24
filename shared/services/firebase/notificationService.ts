@@ -28,6 +28,9 @@ export interface NotificationDispatchResponse {
   gatewayConfigured: boolean;
   message: string;
   dispatchedAt: string;
+  smsBody?: string;
+  whatsappUrl?: string;
+  smsUrl?: string;
 }
 
 /**
@@ -88,6 +91,16 @@ export async function dispatchTicketNotification(
     // Non-blocking for audit failure
   }
 
+  // Clean recipient phone for deep links (e.g. +91 98765 43210 -> 919876543210)
+  const cleanPhone = req.recipientPhone.replace(/[\s\-\(\)\.]/g, '').replace(/^\+/, '');
+  const passBaseUrl = 'http://192.168.1.197:5175';
+  const passUrl = req.qrPayload
+    ? `${passBaseUrl}/pass?id=${encodeURIComponent(req.tokenNumber)}&data=${encodeURIComponent(req.qrPayload)}`
+    : `${passBaseUrl}/pass?id=${encodeURIComponent(req.tokenNumber)}`;
+  const smsBody = `🏥 QueueLess Visit Pass: Token ${req.tokenNumber} for ${req.departmentName}. Est. Wait: ${req.estimatedWaitMinutes} mins. Open digital pass: ${passUrl}`;
+  const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(smsBody)}`;
+  const smsUrl = `sms:${req.recipientPhone}?&body=${encodeURIComponent(smsBody)}`;
+
   if (isConfigured) {
     // In production with live Twilio/WhatsApp credentials, the trusted server worker sends the message
     return {
@@ -97,6 +110,9 @@ export async function dispatchTicketNotification(
       gatewayConfigured: true,
       message: `Ticket ${req.tokenNumber} dispatched successfully via ${req.channel}.`,
       dispatchedAt: now,
+      smsBody,
+      whatsappUrl,
+      smsUrl,
     };
   }
 
@@ -109,5 +125,8 @@ export async function dispatchTicketNotification(
     gatewayConfigured: false,
     message: `${req.channel} gateway is not configured in this environment. Your digital pass and QR code have been generated on-screen.`,
     dispatchedAt: now,
+    smsBody,
+    whatsappUrl,
+    smsUrl,
   };
 }

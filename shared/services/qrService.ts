@@ -112,6 +112,20 @@ export function encodeQRPayload(params: {
   return Buffer.from(jsonStr).toString('base64');
 }
 
+/**
+ * Constructs an authentic, smartphone-openable web URL for the visitor's digital pass
+ * to be encoded inside physical/digital 2D matrix QR barcodes.
+ */
+export function buildPassUrl(params: {
+  baseUrl?: string;
+  tokenId: string;
+  tokenNumber?: string;
+  qrPayload: string;
+}): string {
+  const base = (params.baseUrl || 'http://192.168.1.197:5175').replace(/\/+$/, '');
+  return `${base}/pass?id=${encodeURIComponent(params.tokenId)}&data=${encodeURIComponent(params.qrPayload)}`;
+}
+
 export interface QRValidationResult {
   isValid: boolean;
   payload?: QRPayload;
@@ -121,6 +135,7 @@ export interface QRValidationResult {
 
 /**
  * Decodes and validates a scanned QR code payload against the expected institution.
+ * Automatically accepts both raw base64 payloads and full HTTP pass URLs.
  */
 export function decodeAndValidateQRPayload(
   encodedPayload: string,
@@ -128,11 +143,34 @@ export function decodeAndValidateQRPayload(
   expectedBranchId?: string
 ): QRValidationResult {
   try {
+    let cleanPayload = encodedPayload ? encodedPayload.trim() : '';
+
+    // If input is an HTTP/HTTPS pass URL, extract the embedded data parameter
+    if (
+      cleanPayload.startsWith('http://') ||
+      cleanPayload.startsWith('https://') ||
+      cleanPayload.includes('/pass?') ||
+      cleanPayload.includes('data=')
+    ) {
+      try {
+        const parsedUrl = new URL(cleanPayload, 'http://localhost:5175');
+        const extracted = parsedUrl.searchParams.get('data') || parsedUrl.searchParams.get('payload');
+        if (extracted) {
+          cleanPayload = extracted;
+        }
+      } catch {
+        const match = cleanPayload.match(/[?&](?:data|payload)=([^&#]+)/);
+        if (match && match[1]) {
+          cleanPayload = decodeURIComponent(match[1]);
+        }
+      }
+    }
+
     let jsonStr: string;
     if (typeof atob !== 'undefined') {
-      jsonStr = atob(encodedPayload);
+      jsonStr = atob(cleanPayload);
     } else {
-      jsonStr = Buffer.from(encodedPayload, 'base64').toString('utf8');
+      jsonStr = Buffer.from(cleanPayload, 'base64').toString('utf8');
     }
 
     const payload = JSON.parse(jsonStr) as QRPayload;
