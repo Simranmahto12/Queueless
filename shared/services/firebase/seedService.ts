@@ -59,6 +59,32 @@ export async function seedFirestoreDatabase(): Promise<{
     // 1. Seed Authorized Default Users
     const defaultUsers: User[] = [
       {
+        id: 'usr-admin-1234',
+        userId: 'usr-admin-1234',
+        email: 'admin1234@gmail.com',
+        displayName: 'Administrator',
+        phone: '+1 (555) 019-1234',
+        role: UserRole.INSTITUTION_ADMIN,
+        institutionId: 'inst-apex-health',
+        branchId: 'branch-apex-main',
+        isActive: true,
+        createdAt: '2026-01-10T08:00:00Z',
+        updatedAt: '2026-11-20T10:00:00Z',
+      },
+      {
+        id: 'usr-admin-priyachi',
+        userId: 'usr-admin-priyachi',
+        email: 'priyachi89711@gmail.com',
+        displayName: 'Priya Patel',
+        phone: '+91 98765 43210',
+        role: UserRole.INSTITUTION_ADMIN,
+        institutionId: 'inst-apex-health',
+        branchId: 'branch-apex-main',
+        isActive: true,
+        createdAt: '2026-01-10T08:00:00Z',
+        updatedAt: '2026-11-20T10:00:00Z',
+      },
+      {
         id: 'usr-admin-apex',
         userId: 'usr-admin-apex',
         email: 'admin@apexhealth.org',

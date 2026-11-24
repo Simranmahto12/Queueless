@@ -22,6 +22,44 @@ import { UserRole } from '../../types/enums';
 // In production with live Firebase, accounts are authenticated strictly via Firebase Auth & Firestore.
 const DEMO_ACCOUNTS_REGISTRY: Map<string, { user: User; passwordHash: string }> = new Map([
   [
+    'admin1234@gmail.com',
+    {
+      user: {
+        id: 'usr-admin-1234',
+        userId: 'usr-admin-1234',
+        email: 'admin1234@gmail.com',
+        displayName: 'Administrator',
+        phone: '+1 (555) 019-1234',
+        role: UserRole.INSTITUTION_ADMIN,
+        institutionId: 'inst-apex-health',
+        branchId: 'branch-apex-main',
+        isActive: true,
+        createdAt: '2026-01-10T08:00:00Z',
+        updatedAt: '2026-11-20T10:00:00Z',
+      },
+      passwordHash: '1234567890',
+    },
+  ],
+  [
+    'priyachi89711@gmail.com',
+    {
+      user: {
+        id: 'usr-admin-priyachi',
+        userId: 'usr-admin-priyachi',
+        email: 'priyachi89711@gmail.com',
+        displayName: 'Priya Patel',
+        phone: '+91 98765 43210',
+        role: UserRole.INSTITUTION_ADMIN,
+        institutionId: 'inst-apex-health',
+        branchId: 'branch-apex-main',
+        isActive: true,
+        createdAt: '2026-01-10T08:00:00Z',
+        updatedAt: '2026-11-20T10:00:00Z',
+      },
+      passwordHash: '1234567890',
+    },
+  ],
+  [
     'admin@apexhealth.org',
     {
       user: {
@@ -455,6 +493,18 @@ export function subscribeAuth(callback: (user: User | null) => void): () => void
  */
 export function getDemoAccountsForDev(): { email: string; role: UserRole; description: string; defaultPass: string }[] {
   return [
+    {
+      email: 'admin1234@gmail.com',
+      role: UserRole.INSTITUTION_ADMIN,
+      description: 'Institution Administrator (Full Admin Console Access)',
+      defaultPass: '1234567890',
+    },
+    {
+      email: 'priyachi89711@gmail.com',
+      role: UserRole.INSTITUTION_ADMIN,
+      description: 'Institution Administrator (Priya Patel - Full Admin Console Access)',
+      defaultPass: '1234567890',
+    },
     {
       email: 'admin@apexhealth.org',
       role: UserRole.INSTITUTION_ADMIN,
