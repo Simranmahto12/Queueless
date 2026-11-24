@@ -30,7 +30,7 @@ import {
 import { decodeAndValidateQRPayload } from '../qrService';
 import { calculateZoneOccupancy } from '../../algorithms/occupancyCalculator';
 import { MOCK_ZONES, MOCK_ALERTS } from '../mockData';
-import { updateInMemoryTokenCheckIn } from './tokenService';
+import { updateInMemoryTokenCheckIn, getInMemoryTokenById } from './tokenService';
 import { recordAuditLog } from './auditService';
 
 // Fallback in-memory state
@@ -72,6 +72,7 @@ export async function checkInVisitorWithQR(params: {
   targetZoneId: string;
   method?: CheckInMethod;
   verifiedByStaffId?: string;
+  markAsCompleted?: boolean;
 }): Promise<CheckInResult> {
   const {
     qrPayload,
@@ -80,6 +81,7 @@ export async function checkInVisitorWithQR(params: {
     targetZoneId,
     method = CheckInMethod.QR_SCAN_MOBILE,
     verifiedByStaffId,
+    markAsCompleted = true,
   } = params;
 
   // 1. Verify QR Integrity
@@ -99,6 +101,7 @@ export async function checkInVisitorWithQR(params: {
   const { tokenId } = qrValidation.payload;
   const { db, isConfigured } = getFirebaseServices();
   const now = new Date().toISOString();
+  const finalStatus = markAsCompleted ? TokenStatus.COMPLETED : TokenStatus.CHECKED_IN;
 
   if (db && isConfigured) {
     const txRes = await runTransaction(db, async (transaction) => {
@@ -153,10 +156,11 @@ export async function checkInVisitorWithQR(params: {
       const checkInRef = doc(db, 'checkIns', checkInId);
       transaction.set(checkInRef, newCheckIn);
 
-      // Update Token
+      // Update Token (mark completed if requested, freeing the user to book a new ticket)
       transaction.update(tokenRef, {
-        status: TokenStatus.CHECKED_IN,
+        status: finalStatus,
         checkedInAt: now,
+        serviceCompletedAt: markAsCompleted ? now : null,
         checkInMethod: method,
         updatedAt: now,
       });
@@ -192,7 +196,12 @@ export async function checkInVisitorWithQR(params: {
       return {
         success: true,
         checkIn: newCheckIn,
-        token: { ...tokenData, status: TokenStatus.CHECKED_IN, checkedInAt: now },
+        token: {
+          ...tokenData,
+          status: finalStatus,
+          checkedInAt: now,
+          serviceCompletedAt: markAsCompleted ? now : undefined,
+        },
         zone: { ...zoneData, currentOccupancy: newOccupancy, occupancyStatus: occCalc.status },
       };
     });
@@ -208,9 +217,16 @@ export async function checkInVisitorWithQR(params: {
         targetEntityId: tokenId,
         changes: {
           before: { status: TokenStatus.ISSUED, checkedInAt: null },
-          after: { status: TokenStatus.CHECKED_IN, checkedInAt: now, zoneId: targetZoneId },
+          after: {
+            status: finalStatus,
+            checkedInAt: now,
+            serviceCompletedAt: markAsCompleted ? now : undefined,
+            zoneId: targetZoneId,
+          },
         },
-        details: `QR Code check-in verified. Single-use QR code expired and retired. Visitor checked in to zone ${targetZoneId}.`,
+        details: markAsCompleted
+          ? `QR Code check-in verified. Single-use QR pass expired. Ticket marked as COMPLETED. User is now eligible to book another ticket.`
+          : `QR Code check-in verified. Single-use QR pass expired and retired. Visitor admitted to waiting zone ${targetZoneId}.`,
       });
     }
 
@@ -232,6 +248,14 @@ export async function checkInVisitorWithQR(params: {
     };
   }
 
+  const existingToken = getInMemoryTokenById(tokenId);
+  if (existingToken && (existingToken.status === TokenStatus.COMPLETED || existingToken.status === TokenStatus.CANCELLED)) {
+    return {
+      success: false,
+      errorMessage: `Token ${existingToken.tokenNumber} is already closed (${existingToken.status}).`,
+    };
+  }
+
   const newOccupancy = targetZone.currentOccupancy + 1;
   const occCalc = calculateZoneOccupancy(newOccupancy, targetZone.maxCapacity);
 
@@ -243,7 +267,7 @@ export async function checkInVisitorWithQR(params: {
     institutionId: expectedInstitutionId,
     branchId: expectedBranchId,
     zoneId: targetZoneId,
-    visitorId: 'visitor-user',
+    visitorId: existingToken?.visitorId || 'visitor-user',
     checkedInAt: now,
     method,
     isValid: true,
@@ -251,7 +275,7 @@ export async function checkInVisitorWithQR(params: {
     updatedAt: now,
   };
   inMemoryCheckIns.push(newCheckIn);
-  updateInMemoryTokenCheckIn(tokenId, now);
+  updateInMemoryTokenCheckIn(tokenId, now, markAsCompleted);
 
   inMemoryZones = inMemoryZones.map((z) =>
     z.zoneId === targetZoneId
@@ -295,14 +319,22 @@ export async function checkInVisitorWithQR(params: {
     targetEntityId: tokenId,
     changes: {
       before: { status: TokenStatus.ISSUED, checkedInAt: null },
-      after: { status: TokenStatus.CHECKED_IN, checkedInAt: now, zoneId: targetZoneId },
+      after: {
+        status: finalStatus,
+        checkedInAt: now,
+        serviceCompletedAt: markAsCompleted ? now : undefined,
+        zoneId: targetZoneId,
+      },
     },
-    details: `QR Code check-in verified. Single-use QR pass expired and retired. Visitor admitted to waiting zone ${targetZone.name || targetZoneId}. Lobby occupancy updated (${newOccupancy}/${targetZone.maxCapacity}).`,
+    details: markAsCompleted
+      ? `QR Code check-in verified. Single-use QR pass expired. Ticket marked as COMPLETED. User is now eligible to book another ticket.`
+      : `QR Code check-in verified. Single-use QR pass expired and retired. Visitor admitted to waiting zone ${targetZone.name || targetZoneId}. Lobby occupancy updated (${newOccupancy}/${targetZone.maxCapacity}).`,
   });
 
   return {
     success: true,
     checkIn: newCheckIn,
+    token: getInMemoryTokenById(tokenId),
     zone: inMemoryZones.find((z) => z.zoneId === targetZoneId),
   };
 }

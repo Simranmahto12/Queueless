@@ -64,20 +64,34 @@ function notifyCounterChange() {
 }
 
 /**
- * Updates a token in the in-memory fallback store upon QR check-in.
+ * Updates a token in the in-memory fallback store upon QR check-in / usage.
+ * When markAsCompleted is true, immediately finalizes the token so the visitor
+ * can reserve a new arrival slot or service.
  */
-export function updateInMemoryTokenCheckIn(tokenId: string, checkedInAt: string): void {
+export function updateInMemoryTokenCheckIn(
+  tokenId: string,
+  checkedInAt: string,
+  markAsCompleted = true
+): void {
   inMemoryTokens = inMemoryTokens.map((t) =>
     t.tokenId === tokenId
       ? {
           ...t,
-          status: TokenStatus.CHECKED_IN,
+          status: markAsCompleted ? TokenStatus.COMPLETED : TokenStatus.CHECKED_IN,
           checkedInAt,
+          serviceCompletedAt: markAsCompleted ? checkedInAt : t.serviceCompletedAt,
           updatedAt: checkedInAt,
         }
       : t
   );
   notifyTokenChange();
+}
+
+/**
+ * Retrieves a token from the in-memory store by tokenId.
+ */
+export function getInMemoryTokenById(tokenId: string): Token | undefined {
+  return inMemoryTokens.find((t) => t.tokenId === tokenId);
 }
 
 /**

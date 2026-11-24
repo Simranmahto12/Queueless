@@ -119,7 +119,7 @@ interface AdminContextType {
   undoTokenAction: (tokenId: string, previousStatus: TokenStatus, counterId?: string) => Promise<void>;
   recallToken: (tokenId: string) => Promise<void>;
   cancelToken: (tokenId: string, reason?: string) => Promise<void>;
-  checkInToken: (tokenId: string, zoneId?: string) => Promise<void>;
+  checkInToken: (tokenId: string, zoneId?: string, markAsCompleted?: boolean) => Promise<void>;
   checkOutToken: (tokenId: string, zoneId?: string) => Promise<void>;
   updateCounterStatus: (counterId: string, status: CounterStatus) => Promise<void>;
   acknowledgeAlert: (alertId: string) => Promise<void>;
@@ -435,21 +435,29 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // QR Check-in validation and atomic occupancy update
-  const checkInToken = async (tokenId: string, zoneId?: string) => {
+  const checkInToken = async (tokenId: string, zoneId?: string, markAsCompleted = true) => {
     try {
       const token = tokens.find((t) => t.tokenId === tokenId);
       if (!token) throw new Error('Token record not found.');
 
-      const targetZone = zoneId || zones[0]?.zoneId || 'zone-cardio-wait';
+      const targetZone = zoneId || zones[0]?.zoneId || 'zone-apex-cardio';
       const result = await checkInVisitorWithQR({
         qrPayload: token.qrCodeValue || '',
         expectedInstitutionId: currentInstitution.institutionId,
         expectedBranchId: currentBranch.branchId,
         targetZoneId: targetZone,
+        markAsCompleted,
       });
 
       if (result.success) {
-        addToast('success', `Token ${token.tokenNumber} checked in. Lobby occupancy updated.`);
+        if (markAsCompleted) {
+          addToast(
+            'success',
+            `Token ${token.tokenNumber} QR pass verified & marked complete! You can now book another slot.`
+          );
+        } else {
+          addToast('success', `Token ${token.tokenNumber} checked in. Lobby occupancy updated.`);
+        }
       } else {
         addToast('warning', result.errorMessage || 'Check-in validation failed.');
       }

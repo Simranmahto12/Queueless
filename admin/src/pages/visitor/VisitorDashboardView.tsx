@@ -232,7 +232,7 @@ export const VisitorDashboardView: React.FC = () => {
   const handleSimulateCheckIn = async () => {
     if (!activeToken) return;
     try {
-      await checkInToken(activeToken.tokenId);
+      await checkInToken(activeToken.tokenId, undefined, true);
     } catch (err: unknown) {
       addToast('danger', 'Check-in validation failed.');
     }
@@ -283,8 +283,8 @@ export const VisitorDashboardView: React.FC = () => {
         );
       case TokenStatus.COMPLETED:
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700">
-            Completed
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
+            ✓ Completed & Used
           </span>
         );
       case TokenStatus.CANCELLED:
@@ -508,21 +508,57 @@ export const VisitorDashboardView: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-dashed border-borderSoft p-8 text-center">
-              <div className="w-12 h-12 rounded-xl bg-slate-50 border border-borderSoft flex items-center justify-center text-textMuted mx-auto mb-3">
-                <Ticket className="w-6 h-6" />
+            <div className="space-y-4">
+              {historyTokens.length > 0 && historyTokens[0].status === TokenStatus.COMPLETED && (
+                <div className="bg-emerald-50/90 border border-emerald-300/80 rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in">
+                  <div className="flex items-start sm:items-center gap-3.5">
+                    <div className="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-600 border border-emerald-300 flex items-center justify-center shrink-0 shadow-xs">
+                      <CheckCircle2 className="w-6 h-6 stroke-[2.5]" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-navy font-mono">
+                          {historyTokens[0].tokenNumber}
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-200/80 text-emerald-900 border border-emerald-300 uppercase tracking-wide">
+                          ✓ Pass Used & Completed
+                        </span>
+                      </div>
+                      <p className="text-xs text-emerald-900 mt-1">
+                        Your previous QR ticket has been used and marked complete. You are now free to book another ticket!
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      document.getElementById('discover-facilities')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-xs shrink-0 self-end sm:self-auto"
+                  >
+                    <Ticket className="w-4 h-4" />
+                    <span>Book Another Ticket</span>
+                  </button>
+                </div>
+              )}
+
+              <div className="bg-white rounded-2xl border border-dashed border-borderSoft p-8 text-center">
+                <div className="w-12 h-12 rounded-xl bg-slate-50 border border-borderSoft flex items-center justify-center text-textMuted mx-auto mb-3">
+                  <Ticket className="w-6 h-6" />
+                </div>
+                <h3 className="text-base font-bold text-navy">No active booking</h3>
+                <p className="text-xs text-textMuted max-w-md mx-auto mt-1 mb-4">
+                  {historyTokens.length > 0
+                    ? 'Your previous pass is completed. You can reserve a new arrival slot or service below.'
+                    : 'You do not currently have an active waiting queue token. Browse participating facilities below to reserve an arrival slot.'}
+                </p>
               </div>
-              <h3 className="text-base font-bold text-navy">No active booking</h3>
-              <p className="text-xs text-textMuted max-w-md mx-auto mt-1 mb-4">
-                You do not currently have an active waiting queue token. Browse participating facilities
-                below to reserve an arrival slot.
-              </p>
             </div>
           )}
         </section>
 
         {/* Institution Discovery & Booking */}
-        <section className="space-y-4">
+        <section id="discover-facilities" className="space-y-4">
           <div>
             <h2 className="text-lg font-bold text-navy">Discover & Book Services</h2>
             <p className="text-xs text-textMuted mt-0.5">

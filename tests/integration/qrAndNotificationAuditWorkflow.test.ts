@@ -8,8 +8,10 @@ import {
   checkInVisitorWithQR,
   dispatchTicketNotification,
   getAuditLogs,
+  getInMemoryTokenById,
   AuditAction,
   TokenStatus,
+  TokenPriority,
   UserRole,
 } from '../../shared';
 
@@ -129,5 +131,33 @@ describe('QR Code Lifecycle, Notification Dispatch & System Audit Logging Integr
       duplicateResult.errorMessage?.toLowerCase().includes('already checked in'),
       'Duplicate scan must be rejected with already checked in error'
     );
+  });
+
+  it('Step 5: Once QR is used, ticket is marked complete and visitor can book another ticket', async () => {
+    // 1. Verify previous token was marked COMPLETED
+    const tokenAfterUse = getInMemoryTokenById(bookedToken.tokenId);
+    assert.ok(tokenAfterUse, 'Token must exist in memory');
+    assert.strictEqual(tokenAfterUse.status, TokenStatus.COMPLETED);
+    assert.ok(tokenAfterUse.serviceCompletedAt, 'serviceCompletedAt must be populated');
+
+    // 2. Book another ticket for the same visitor (which would previously be rejected if active)
+    const secondToken = await bookToken({
+      institutionId: 'inst-apex-health',
+      branchId: 'branch-apex-main',
+      departmentId: 'dept-general',
+      serviceId: 'srv-gen-consult',
+      visitorId: bookedToken.visitorId,
+      visitorName: 'Elena Rostova',
+      visitorPhone: testPhone,
+      priorityCategory: TokenPriority.STANDARD,
+      targetDate,
+      targetSlotTime: '15:30',
+    });
+
+    assert.ok(secondToken, 'Second ticket booking must succeed');
+    assert.strictEqual(secondToken.status, TokenStatus.ISSUED);
+    assert.notStrictEqual(secondToken.tokenId, bookedToken.tokenId);
+    assert.notStrictEqual(secondToken.tokenNumber, bookedToken.tokenNumber);
+    assert.ok(secondToken.qrCodeValue, 'New ticket must have its own scannable QR payload');
   });
 });
