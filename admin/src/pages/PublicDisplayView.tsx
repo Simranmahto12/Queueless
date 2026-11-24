@@ -271,11 +271,11 @@ export const PublicDisplayView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans flex flex-col justify-between select-none overflow-x-hidden selection:bg-primary/20">
+    <div className="min-h-screen bg-slate-950 text-white font-sans flex flex-col justify-between select-none overflow-x-hidden selection:bg-blue-500/30">
       {/* Top Header / Facility Identification */}
       <header className="bg-slate-900/90 border-b border-slate-800 px-6 sm:px-10 py-4 flex items-center justify-between backdrop-blur-md sticky top-0 z-30">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-white font-bold text-2xl shadow-lg border border-primary/40">
+          <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white font-bold text-2xl shadow-lg border border-blue-400/40">
             Q
           </div>
           <div>
@@ -283,7 +283,7 @@ export const PublicDisplayView: React.FC = () => {
               <span>{selectedInstitution.name}</span>
             </h1>
             <p className="text-xs sm:text-sm text-slate-400 font-medium flex items-center gap-1.5 mt-0.5">
-              <Building2 className="w-3.5 h-3.5 text-primary" />
+              <Building2 className="w-3.5 h-3.5 text-blue-400" />
               <span>{selectedBranch.name} &bull; Lobby Queue Display</span>
             </p>
           </div>
@@ -332,7 +332,7 @@ export const PublicDisplayView: React.FC = () => {
 
           {/* Clock Display */}
           <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-4 py-1.5 rounded-xl text-slate-200 font-mono text-sm sm:text-base font-bold shadow-inner">
-            <Clock className="w-4 h-4 text-primary" />
+            <Clock className="w-4 h-4 text-blue-400" />
             <span>{currentTime}</span>
           </div>
 
@@ -359,7 +359,7 @@ export const PublicDisplayView: React.FC = () => {
               step="0.1"
               value={speechVolume}
               onChange={(e) => setSpeechVolume(parseFloat(e.target.value))}
-              className="accent-primary cursor-pointer w-24"
+              className="accent-blue-500 cursor-pointer w-24"
             />
             <span className="font-mono text-slate-400">{Math.round(speechVolume * 100)}%</span>
           </div>
@@ -373,7 +373,7 @@ export const PublicDisplayView: React.FC = () => {
               step="0.05"
               value={speechRate}
               onChange={(e) => setSpeechRate(parseFloat(e.target.value))}
-              className="accent-primary cursor-pointer w-24"
+              className="accent-blue-500 cursor-pointer w-24"
             />
             <span className="font-mono text-slate-400">{speechRate}x</span>
           </div>
@@ -401,13 +401,13 @@ export const PublicDisplayView: React.FC = () => {
       {/* Main Grid Content */}
       <main className="flex-1 p-6 sm:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
         {/* Section A: NOW CALLING (Hero Section - 7 Cols on desktop) */}
-        <section className="lg:col-span-7 flex flex-col justify-between bg-gradient-to-br from-slate-900 to-slate-900/90 border-2 border-primary/50 rounded-3xl p-8 sm:p-12 shadow-2xl relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+        <section className="lg:col-span-7 flex flex-col justify-between bg-gradient-to-br from-slate-900 to-slate-900/90 border-2 border-blue-500/50 rounded-3xl p-8 sm:p-12 shadow-2xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
           {/* Top Label */}
           <div className="flex items-center justify-between">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/20 border border-primary/40 text-primary text-xs sm:text-sm font-bold uppercase tracking-widest">
-              <Sparkles className="w-4 h-4 text-primary" />
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/20 border border-blue-500/40 text-blue-300 text-xs sm:text-sm font-bold uppercase tracking-widest">
+              <Sparkles className="w-4 h-4 text-blue-400" />
               <span>Now Calling</span>
             </div>
             <div className="text-xs text-slate-400 font-medium">
@@ -491,7 +491,7 @@ export const PublicDisplayView: React.FC = () => {
                   {nextTokens.map((t, idx) => (
                     <div
                       key={t.tokenId}
-                      className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-3.5 flex items-center justify-between hover:border-primary/50 transition shadow-sm"
+                      className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-3.5 flex items-center justify-between hover:border-blue-500/60 transition shadow-sm"
                     >
                       <div className="flex items-center gap-3">
                         <span className="w-7 h-7 rounded-xl bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-300">
@@ -508,7 +508,7 @@ export const PublicDisplayView: React.FC = () => {
                       </div>
 
                       <div className="text-right">
-                        <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary/20 text-blue-300 border border-primary/30">
+                        <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
                           {t.status === TokenStatus.CHECKED_IN ? 'On-Site' : 'Slot Booked'}
                         </span>
                       </div>
@@ -563,7 +563,7 @@ export const PublicDisplayView: React.FC = () => {
 
       {/* Section D: ANNOUNCEMENT TICKER (Bottom Banner) */}
       <footer className="bg-slate-900 border-t border-slate-800 py-3 px-6 sm:px-10 flex items-center gap-4 text-xs sm:text-sm text-slate-300 overflow-hidden sticky bottom-0 z-20">
-        <div className="px-2.5 py-1 rounded-md bg-primary text-white font-bold uppercase tracking-wider text-[11px] shrink-0">
+        <div className="px-2.5 py-1 rounded-md bg-blue-600 text-white font-bold uppercase tracking-wider text-[11px] shrink-0">
           Public Notice
         </div>
         <div className="truncate flex-1 font-medium text-slate-300 animate-pulse">
