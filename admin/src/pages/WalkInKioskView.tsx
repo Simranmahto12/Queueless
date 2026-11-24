@@ -274,18 +274,25 @@ export const WalkInKioskView: React.FC = () => {
                     setSelectedDeptId(dept.departmentId);
                     setCurrentStep(2);
                   }}
-                  className="p-6 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border-2 border-slate-700/80 hover:border-blue-500/80 transition text-left flex items-center justify-between group shadow-lg active:scale-98"
+                  className="p-6 rounded-2xl bg-slate-800/90 hover:bg-slate-800 border-2 border-slate-700/80 hover:border-blue-500/80 transition-all duration-200 text-left flex flex-col justify-between group shadow-lg active:scale-98"
                 >
-                  <div className="space-y-1">
+                  <div className="w-full">
                     <span className="text-xs font-bold font-mono uppercase tracking-wider text-blue-400">
                       {dept.code}
                     </span>
-                    <h3 className="text-xl font-bold text-white group-hover:text-blue-300 transition">
+                    <h3 className="text-xl font-bold text-white group-hover:text-blue-300 transition-colors mt-0.5">
                       {dept.name}
                     </h3>
-                    <p className="text-xs text-slate-400 group-hover:text-slate-200 transition-colors">Tap to inspect services</p>
+                    <p className="text-xs text-slate-300 group-hover:text-slate-200 mt-1.5 leading-relaxed">
+                      Tap to inspect available services and request a ticket
+                    </p>
                   </div>
-                  <ChevronRight className="w-6 h-6 text-slate-500 group-hover:text-blue-400 group-hover:translate-x-1 transition" />
+                  <div className="mt-5 pt-3 border-t border-slate-700/80 w-full">
+                    <div className="w-full inline-flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-blue-500/15 text-blue-300 border border-blue-500/30 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-400 text-xs font-semibold transition-all duration-200 shadow-sm">
+                      <span>Select Department</span>
+                      <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </div>
+                  </div>
                 </button>
               ))}
             </div>
@@ -315,21 +322,26 @@ export const WalkInKioskView: React.FC = () => {
                     setSelectedServiceId(srv.serviceId);
                     setCurrentStep(3);
                   }}
-                  className="p-6 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border-2 border-slate-700/80 hover:border-blue-500/80 transition text-left flex flex-col justify-between group shadow-lg active:scale-98"
+                  className="p-6 rounded-2xl bg-slate-800/90 hover:bg-slate-800 border-2 border-slate-700/80 hover:border-blue-500/80 transition-all duration-200 text-left flex flex-col justify-between group shadow-lg active:scale-98"
                 >
-                  <div>
-                    <h3 className="text-lg font-bold text-white group-hover:text-blue-300 transition mb-1">
+                  <div className="w-full">
+                    <h3 className="text-lg font-bold text-white group-hover:text-blue-300 transition-colors mb-1">
                       {srv.name}
                     </h3>
-                    <p className="text-xs text-slate-400 group-hover:text-slate-200 line-clamp-2 leading-relaxed transition-colors">
+                    <p className="text-xs text-slate-300 group-hover:text-slate-200 line-clamp-2 leading-relaxed">
                       {srv.description || 'Standard institutional service desk.'}
                     </p>
+
+                    <div className="flex items-center gap-1.5 text-xs text-blue-400 font-medium mt-3">
+                      <Clock className="w-4 h-4" />
+                      <span>~{srv.estimatedDurationMinutes} mins duration</span>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-4 text-xs text-slate-400 group-hover:text-slate-300 pt-4 mt-4 border-t border-slate-700/60 transition-colors">
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-blue-400" />
-                      <span>~{srv.estimatedDurationMinutes} mins duration</span>
+                  <div className="mt-5 pt-3 border-t border-slate-700/80 w-full">
+                    <div className="w-full inline-flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-blue-500/15 text-blue-300 border border-blue-500/30 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-400 text-xs font-semibold transition-all duration-200 shadow-sm">
+                      <span>Choose Service</span>
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </div>
                   </div>
                 </button>
