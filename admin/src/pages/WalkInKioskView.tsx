@@ -214,7 +214,7 @@ export const WalkInKioskView: React.FC = () => {
       {/* Top Kiosk Header */}
       <header className="bg-slate-950/90 border-b border-slate-800 px-6 sm:px-12 py-5 flex items-center justify-between sticky top-0 z-20 backdrop-blur-md">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-white font-bold text-2xl shadow-lg border border-primary/40">
+          <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white font-bold text-2xl shadow-lg border border-blue-400/40">
             Q
           </div>
           <div>
@@ -222,7 +222,7 @@ export const WalkInKioskView: React.FC = () => {
               <span>{currentInstitution.name}</span>
             </div>
             <div className="text-xs sm:text-sm text-slate-400 font-medium flex items-center gap-1.5 mt-0.5">
-              <Building2 className="w-4 h-4 text-primary" />
+              <Building2 className="w-4 h-4 text-blue-400" />
               <span>
                 {availableBranches.find((b) => b.branchId === selectedBranchId)?.name || 'Main Campus'} &bull; Walk-In Ticket Kiosk
               </span>
@@ -255,7 +255,7 @@ export const WalkInKioskView: React.FC = () => {
         {currentStep === 1 && (
           <div className="space-y-6">
             <div className="text-center space-y-2">
-              <span className="text-xs font-bold uppercase tracking-widest text-primary bg-primary/20 px-3.5 py-1.5 rounded-full border border-primary/30">
+              <span className="text-xs font-bold uppercase tracking-widest text-blue-300 bg-blue-500/20 px-3.5 py-1.5 rounded-full border border-blue-500/30">
                 Step 1 of 3
               </span>
               <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
@@ -274,18 +274,18 @@ export const WalkInKioskView: React.FC = () => {
                     setSelectedDeptId(dept.departmentId);
                     setCurrentStep(2);
                   }}
-                  className="p-6 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border-2 border-slate-700/80 hover:border-primary transition text-left flex items-center justify-between group shadow-lg active:scale-98"
+                  className="p-6 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border-2 border-slate-700/80 hover:border-blue-500/80 transition text-left flex items-center justify-between group shadow-lg active:scale-98"
                 >
                   <div className="space-y-1">
-                    <span className="text-xs font-bold font-mono uppercase tracking-wider text-primary">
+                    <span className="text-xs font-bold font-mono uppercase tracking-wider text-blue-400">
                       {dept.code}
                     </span>
-                    <h3 className="text-xl font-bold text-white group-hover:text-primary transition">
+                    <h3 className="text-xl font-bold text-white group-hover:text-blue-300 transition">
                       {dept.name}
                     </h3>
                     <p className="text-xs text-slate-400">Tap to inspect services</p>
                   </div>
-                  <ChevronRight className="w-6 h-6 text-slate-500 group-hover:text-primary group-hover:translate-x-1 transition" />
+                  <ChevronRight className="w-6 h-6 text-slate-500 group-hover:text-blue-400 group-hover:translate-x-1 transition" />
                 </button>
               ))}
             </div>
@@ -296,7 +296,7 @@ export const WalkInKioskView: React.FC = () => {
         {currentStep === 2 && (
           <div className="space-y-6">
             <div className="text-center space-y-2">
-              <span className="text-xs font-bold uppercase tracking-widest text-primary bg-primary/20 px-3.5 py-1.5 rounded-full border border-primary/30">
+              <span className="text-xs font-bold uppercase tracking-widest text-blue-300 bg-blue-500/20 px-3.5 py-1.5 rounded-full border border-blue-500/30">
                 Step 2 of 3
               </span>
               <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
@@ -315,10 +315,10 @@ export const WalkInKioskView: React.FC = () => {
                     setSelectedServiceId(srv.serviceId);
                     setCurrentStep(3);
                   }}
-                  className="p-6 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border-2 border-slate-700/80 hover:border-primary transition text-left flex flex-col justify-between group shadow-lg active:scale-98"
+                  className="p-6 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border-2 border-slate-700/80 hover:border-blue-500/80 transition text-left flex flex-col justify-between group shadow-lg active:scale-98"
                 >
                   <div>
-                    <h3 className="text-lg font-bold text-white group-hover:text-primary transition mb-1">
+                    <h3 className="text-lg font-bold text-white group-hover:text-blue-300 transition mb-1">
                       {srv.name}
                     </h3>
                     <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
@@ -328,7 +328,7 @@ export const WalkInKioskView: React.FC = () => {
 
                   <div className="flex items-center gap-4 text-xs text-slate-400 pt-4 mt-4 border-t border-slate-700/60">
                     <div className="flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-primary" />
+                      <Clock className="w-4 h-4 text-blue-400" />
                       <span>~{srv.estimatedDurationMinutes} mins duration</span>
                     </div>
                   </div>
@@ -352,7 +352,7 @@ export const WalkInKioskView: React.FC = () => {
         {currentStep === 3 && (
           <div className="max-w-xl mx-auto w-full space-y-6">
             <div className="text-center space-y-2">
-              <span className="text-xs font-bold uppercase tracking-widest text-primary bg-primary/20 px-3.5 py-1.5 rounded-full border border-primary/30">
+              <span className="text-xs font-bold uppercase tracking-widest text-blue-300 bg-blue-500/20 px-3.5 py-1.5 rounded-full border border-blue-500/30">
                 Step 3 of 3
               </span>
               <h2 className="text-3xl font-extrabold tracking-tight text-white">
@@ -375,8 +375,8 @@ export const WalkInKioskView: React.FC = () => {
                     onClick={() => setIsAnonymous(true)}
                     className={`py-3.5 px-4 rounded-xl text-xs font-bold border-2 transition ${
                       isAnonymous
-                        ? 'bg-primary/20 text-primary border-primary'
-                        : 'bg-slate-900 border-slate-700 text-slate-400'
+                        ? 'bg-blue-500/20 text-blue-300 border-blue-500'
+                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
                     }`}
                   >
                     Quick Walk-In (No Name)
@@ -386,8 +386,8 @@ export const WalkInKioskView: React.FC = () => {
                     onClick={() => setIsAnonymous(false)}
                     className={`py-3.5 px-4 rounded-xl text-xs font-bold border-2 transition ${
                       !isAnonymous
-                        ? 'bg-primary/20 text-primary border-primary'
-                        : 'bg-slate-900 border-slate-700 text-slate-400'
+                        ? 'bg-blue-500/20 text-blue-300 border-blue-500'
+                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
                     }`}
                   >
                     Enter My Name
@@ -405,7 +405,7 @@ export const WalkInKioskView: React.FC = () => {
                     value={visitorName}
                     onChange={(e) => setVisitorName(e.target.value)}
                     placeholder="e.g. John Doe"
-                    className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-sm text-white focus:outline-none focus:border-primary"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-sm text-white focus:outline-none focus:border-blue-500"
                   />
                 </div>
               )}
@@ -421,7 +421,7 @@ export const WalkInKioskView: React.FC = () => {
                     value={visitorPhone}
                     onChange={(e) => setVisitorPhone(e.target.value)}
                     placeholder="+1 (555) 000-0000"
-                    className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-sm text-white focus:outline-none focus:border-primary"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-sm text-white focus:outline-none focus:border-blue-500"
                   />
                 </div>
 
@@ -431,7 +431,7 @@ export const WalkInKioskView: React.FC = () => {
                       type="checkbox"
                       checked={wantsSMS}
                       onChange={(e) => setWantsSMS(e.target.checked)}
-                      className="w-4 h-4 rounded text-primary accent-primary cursor-pointer"
+                      className="w-4 h-4 rounded text-blue-600 accent-blue-500 cursor-pointer"
                     />
                     <span className="text-xs text-slate-300">
                       Send my ticket and live arrival updates via SMS
@@ -443,7 +443,7 @@ export const WalkInKioskView: React.FC = () => {
                       type="checkbox"
                       checked={wantsWhatsApp}
                       onChange={(e) => setWantsWhatsApp(e.target.checked)}
-                      className="w-4 h-4 rounded text-primary accent-primary cursor-pointer"
+                      className="w-4 h-4 rounded text-blue-600 accent-blue-500 cursor-pointer"
                     />
                     <span className="text-xs text-slate-300">
                       Send updates via official WhatsApp Business
@@ -465,7 +465,7 @@ export const WalkInKioskView: React.FC = () => {
                   type="button"
                   onClick={handleGenerateTicket}
                   disabled={isSubmitting}
-                  className="flex-[2] py-3.5 rounded-xl bg-primary hover:bg-blue-600 active:bg-blue-700 text-white text-sm font-bold shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="flex-[2] py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-sm font-bold shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {isSubmitting ? (
                     <>
@@ -500,9 +500,9 @@ export const WalkInKioskView: React.FC = () => {
             </div>
 
             {/* Boarding-Pass Style Card */}
-            <div className="bg-white text-slate-900 rounded-3xl p-8 shadow-2xl relative overflow-hidden border-4 border-primary">
+            <div className="bg-white text-slate-900 rounded-3xl p-8 shadow-2xl relative overflow-hidden border-4 border-blue-600">
               <div className="flex items-center justify-between pb-4 border-b border-dashed border-slate-300 text-xs text-slate-500">
-                <span className="font-bold text-primary uppercase tracking-wider">
+                <span className="font-bold text-blue-600 uppercase tracking-wider">
                   {currentInstitution.name}
                 </span>
                 <span>{new Date().toLocaleDateString()}</span>
@@ -586,7 +586,7 @@ export const WalkInKioskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleResetKiosk}
-                  className="flex-1 py-3 px-4 rounded-xl bg-primary hover:bg-blue-600 text-white text-xs font-bold transition flex items-center justify-center gap-2"
+                  className="flex-1 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition flex items-center justify-center gap-2"
                 >
                   <span>Finish & Next Visitor</span>
                   <ArrowRight className="w-4 h-4" />
@@ -596,7 +596,7 @@ export const WalkInKioskView: React.FC = () => {
             {/* Auto-reset Countdown */}
             <div className="text-xs text-slate-400">
               Kiosk will automatically reset in{' '}
-              <span className="font-bold font-mono text-primary">{resetCountdown}s</span> for the next visitor.
+              <span className="font-bold font-mono text-blue-400">{resetCountdown}s</span> for the next visitor.
             </div>
           </div>
         )}
