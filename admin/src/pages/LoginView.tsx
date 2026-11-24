@@ -19,6 +19,8 @@ import { getDemoAccountsForDev } from '@queueless/shared';
 
 export const LoginView: React.FC = () => {
   const { login, resetPassword } = useAdmin();
+  const showDeveloperAccounts =
+    import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEVELOPER_CONTROLS === 'true';
 
   // Form states
   const [email, setEmail] = useState('');
@@ -35,7 +37,7 @@ export const LoginView: React.FC = () => {
 
   // Demo accounts helper (for development / reviewer evaluation)
   const [showDemoAccounts, setShowDemoAccounts] = useState(false);
-  const demoAccounts = getDemoAccountsForDev();
+  const demoAccounts = showDeveloperAccounts ? getDemoAccountsForDev() : [];
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -288,8 +290,9 @@ export const LoginView: React.FC = () => {
             </form>
           )}
 
-          {/* Development / Reviewer Evaluation Helper */}
-          <div className="mt-6 pt-5 border-t border-borderSoft">
+          {/* Explicitly enabled development-only account helper */}
+          {showDeveloperAccounts && (
+            <div className="mt-6 pt-5 border-t border-borderSoft">
             <button
               type="button"
               onClick={() => setShowDemoAccounts(!showDemoAccounts)}
@@ -342,7 +345,8 @@ export const LoginView: React.FC = () => {
                 </div>
               </div>
             )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

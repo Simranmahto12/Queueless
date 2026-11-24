@@ -24,7 +24,26 @@ export async function seedFirestoreDatabase(): Promise<{
   message: string;
   count: number;
 }> {
+  if (
+    typeof process === 'undefined' ||
+    process.env.QUEUELESS_ENABLE_FIRESTORE_SEEDING !== 'true'
+  ) {
+    return {
+      success: false,
+      message: 'Firestore seeding is disabled. Explicitly enable it for local development or testing.',
+      count: 0,
+    };
+  }
+
   const { db, isConfigured, connectionState } = getFirebaseServices();
+
+  if (connectionState !== 'LOCAL_EMULATOR') {
+    return {
+      success: false,
+      message: 'Firestore seeding is restricted to the local Firebase Emulator; cloud and fallback modes are not allowed.',
+      count: 0,
+    };
+  }
 
   if (!db || !isConfigured) {
     return {

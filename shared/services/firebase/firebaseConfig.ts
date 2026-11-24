@@ -51,6 +51,10 @@ function getMetaEnv(): Record<string, string | undefined> | null {
  * Reads Firebase configuration from Vite (import.meta.env) or Expo / Node (process.env).
  */
 export function getFirebaseEnvConfig(): Partial<FirebaseClientConfig> {
+  if (configuredEnv) {
+    return configuredEnv;
+  }
+
   const metaEnv = getMetaEnv();
   if (metaEnv) {
     return {
@@ -82,13 +86,29 @@ let firebaseApp: FirebaseApp | null = null;
 let firebaseAuth: Auth | null = null;
 let firestoreDb: Firestore | null = null;
 let connectionState: FirebaseConnectionState = 'STANDALONE_FALLBACK';
+let connectionError: string | null = null;
 let emulatorConnected = false;
+let configuredEnv: Partial<FirebaseClientConfig> | null = null;
+let configuredEmulator: boolean | null = null;
+
+export function configureFirebaseClient(
+  config: Partial<FirebaseClientConfig>,
+  useEmulator: boolean
+): void {
+  if (firebaseApp) {
+    throw new Error('Firebase client configuration must be set before Firebase is initialized.');
+  }
+
+  configuredEnv = config;
+  configuredEmulator = useEmulator;
+}
 
 export function getFirebaseServices(): {
   app: FirebaseApp | null;
   auth: Auth | null;
   db: Firestore | null;
   connectionState: FirebaseConnectionState;
+  connectionError: string | null;
   isConfigured: boolean;
 } {
   if (firebaseApp && firestoreDb && firebaseAuth) {
@@ -97,6 +117,7 @@ export function getFirebaseServices(): {
       auth: firebaseAuth,
       db: firestoreDb,
       connectionState,
+      connectionError,
       isConfigured: connectionState !== 'STANDALONE_FALLBACK',
     };
   }
@@ -106,17 +127,20 @@ export function getFirebaseServices(): {
 
   const metaEnv = getMetaEnv();
   const useEmulator =
-    metaEnv?.VITE_USE_FIREBASE_EMULATOR === 'true' ||
-    (typeof process !== 'undefined' &&
-      (process.env?.EXPO_PUBLIC_USE_EMULATOR === 'true' || process.env?.USE_FIREBASE_EMULATOR === 'true'));
+    configuredEmulator ??
+    (metaEnv?.VITE_USE_FIREBASE_EMULATOR === 'true' ||
+      (typeof process !== 'undefined' &&
+        (process.env?.EXPO_PUBLIC_USE_EMULATOR === 'true' || process.env?.USE_FIREBASE_EMULATOR === 'true')));
 
   if (!isValid && !useEmulator) {
     connectionState = 'STANDALONE_FALLBACK';
+    connectionError = 'Firebase credentials are missing or invalid.';
     return {
       app: null,
       auth: null,
       db: null,
       connectionState,
+      connectionError,
       isConfigured: false,
     };
   }
@@ -151,12 +175,16 @@ export function getFirebaseServices(): {
       connectFirestoreEmulator(firestoreDb, emulatorHost, 8080);
       emulatorConnected = true;
       connectionState = 'LOCAL_EMULATOR';
+      connectionError = null;
       console.info(`[QueueLess] Connected to Firebase Emulators at ${emulatorHost}`);
     } catch (err) {
-      console.warn('[QueueLess] Could not bind to Firebase emulators:', err);
+      connectionState = 'STANDALONE_FALLBACK';
+      connectionError = err instanceof Error ? err.message : String(err);
+      console.error('[QueueLess] Could not bind to Firebase emulators:', err);
     }
   } else if (isValid) {
     connectionState = 'LIVE_PROJECT';
+    connectionError = null;
   }
 
   return {
@@ -164,6 +192,7 @@ export function getFirebaseServices(): {
     auth: firebaseAuth,
     db: firestoreDb,
     connectionState,
-    isConfigured: true,
+    connectionError,
+    isConfigured: connectionState !== 'STANDALONE_FALLBACK',
   };
 }

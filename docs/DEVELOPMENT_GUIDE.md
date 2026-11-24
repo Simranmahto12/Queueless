@@ -92,6 +92,7 @@ npm install
 npm run dev
 # Dashboard launches at http://localhost:5173
 ```
+To show the demo-account helper during local development, set `VITE_ENABLE_DEVELOPER_CONTROLS=true` in `admin/.env.local`. It is only available in Vite development mode.
 
 ### 3.4 Member 3 — Firebase Backend & Emulators
 ```bash
@@ -99,6 +100,12 @@ cd firebase
 # Start local Firestore & Functions emulators
 firebase emulators:start
 ```
+
+To seed development data, start the Firestore emulator and explicitly enable the guarded seeder:
+```bash
+QUEUELESS_ENABLE_FIRESTORE_SEEDING=true USE_FIREBASE_EMULATOR=true npm run seed:db
+```
+Seeding is refused unless both flags are set and the Firebase client is connected to the local emulator. Cloud Firestore and local fallback mode are never seeded by this utility.
 
 ### 3.5 Member 4 — Algorithms & QA Testing
 ```bash
