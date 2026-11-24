@@ -4,7 +4,7 @@ import { HelpCircle, ArrowLeft, Ticket, Shield } from 'lucide-react';
 
 export const NotFoundView: React.FC = () => {
   return (
-    <div className="min-h-screen bg-appBg flex flex-col items-center justify-center p-6 text-center font-sans select-none">
+    <div className="flex-1 bg-appBg flex flex-col items-center justify-center p-6 text-center font-sans select-none">
       <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-borderSoft flex items-center justify-center text-textMuted mb-6 shadow-xs">
         <HelpCircle className="w-8 h-8 text-primary" />
       </div>

@@ -5,11 +5,13 @@ import {
   Route,
   Navigate,
   Link,
+  useLocation,
 } from 'react-router-dom';
 import { AdminProvider, useAdmin } from './context/AdminContext';
 import { Sidebar, AdminTab } from './layouts/Sidebar';
 import { Header } from './layouts/Header';
 import { ToastContainer } from './components/ToastContainer';
+import { Footer } from './components/Footer';
 import { Loader2, ShieldAlert, ArrowRight } from 'lucide-react';
 import { UserRole } from '@queueless/shared';
 
@@ -41,7 +43,7 @@ import { SettingsView } from './pages/SettingsView';
  * Full-screen loading indicator for session verification
  */
 const AuthLoadingScreen: React.FC = () => (
-  <div className="flex flex-col items-center justify-center min-h-screen bg-appBg select-none">
+  <div className="flex flex-1 flex-col items-center justify-center bg-appBg select-none">
     <div className="w-12 h-12 rounded-xl bg-navy flex items-center justify-center text-white font-bold text-2xl shadow-md mb-4 border border-navy">
       Q
     </div>
@@ -91,7 +93,7 @@ const RequireAdmin: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   // If a visitor attempts to access administrative screens, block politely
   if (isVisitor && !isAdmin) {
     return (
-      <div className="min-h-screen bg-appBg flex flex-col items-center justify-center p-6 text-center select-none font-sans">
+      <div className="flex flex-1 flex-col items-center justify-center bg-appBg p-6 text-center select-none font-sans">
         <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 mb-4 shadow-sm">
           <ShieldAlert className="w-7 h-7" />
         </div>
@@ -185,23 +187,32 @@ const AdminDashboardWorkspace: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-appBg text-textMain antialiased overflow-hidden font-sans">
+    <div className="admin-shell flex bg-appBg text-textMain antialiased overflow-hidden font-sans">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <div className="flex-1 flex-col min-w-0 overflow-hidden flex flex-1">
         <Header onOpenAlerts={() => setActiveTab('alerts')} />
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-          <div className="max-w-7xl mx-auto">{renderCurrentView()}</div>
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+          <div className="max-w-7xl mx-auto">
+            {renderCurrentView()}
+          </div>
         </main>
       </div>
     </div>
   );
 };
 
-export const App: React.FC = () => {
+const RouteAwareApp: React.FC = () => {
+  const { pathname } = useLocation();
+  const isDedicatedFullscreenMode =
+    pathname === '/display' ||
+    pathname === '/tv' ||
+    pathname === '/kiosk' ||
+    pathname.startsWith('/kiosk/');
+
   return (
-    <AdminProvider>
-      <BrowserRouter>
+    <div className={isDedicatedFullscreenMode ? undefined : 'app-layout flex min-h-screen flex-col'}>
+      <div className={isDedicatedFullscreenMode ? undefined : 'flex flex-1 flex-col'}>
         <Routes>
           {/* Public Root: Welcome Page */}
           <Route path="/" element={<WelcomeView />} />
@@ -252,10 +263,17 @@ export const App: React.FC = () => {
           {/* 404 Catch-All */}
           <Route path="*" element={<NotFoundView />} />
         </Routes>
-
-        {/* Global Toasts */}
-        <ToastContainer />
-      </BrowserRouter>
-    </AdminProvider>
+      </div>
+      {!isDedicatedFullscreenMode && <Footer />}
+      <ToastContainer />
+    </div>
   );
 };
+
+export const App: React.FC = () => (
+  <AdminProvider>
+    <BrowserRouter>
+      <RouteAwareApp />
+    </BrowserRouter>
+  </AdminProvider>
+);

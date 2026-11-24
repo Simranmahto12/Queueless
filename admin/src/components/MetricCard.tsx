@@ -24,19 +24,19 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   return (
     <div
       onClick={onClick}
-      className={`p-5 bg-white rounded-xl border border-borderSoft shadow-subtle ${
+      className={`p-3 bg-white rounded-xl border border-borderSoft shadow-card ${
         onClick ? 'cursor-pointer hover:border-slate-300 transition-colors' : ''
       }`}
     >
-      <div className="flex items-center justify-between text-textMuted mb-2">
-        <span className="text-xs font-medium uppercase tracking-wider text-slate-500">{title}</span>
-        {icon && <div className="text-navy">{icon}</div>}
+      <div className="flex items-center justify-between text-textMuted mb-1">
+        <span className="rounded-full bg-navy-50 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-slate-600">{title}</span>
+        {icon && <div className="w-6 h-6 rounded-md bg-navy-50 text-navy flex items-center justify-center">{icon}</div>}
       </div>
       <div className="flex items-baseline gap-2">
-        <span className="text-2xl font-bold text-textMain tracking-tight">{value}</span>
+        <span className="text-xl font-bold text-textMain tracking-tight">{value}</span>
         {trend && (
           <span
-            className={`text-xs font-medium inline-flex items-center gap-0.5 ${
+            className={`text-[10px] font-medium inline-flex items-center gap-0.5 ${
               trend.isPositive ? 'text-emerald-600' : 'text-red-600'
             }`}
           >
@@ -45,7 +45,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
           </span>
         )}
       </div>
-      {subtitle && <p className="text-xs text-textMuted mt-1">{subtitle}</p>}
+      {subtitle && <p className="text-[10px] font-medium text-textMain mt-0.5">{subtitle}</p>}
     </div>
   );
 };

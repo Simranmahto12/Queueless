@@ -19,7 +19,6 @@ export const ConnectionStatusBadge: React.FC<ConnectionStatusBadgeProps> = ({
   onForceSync,
   isSyncing = false,
 }) => {
-  // Determine plain English display state
   const isConnected = connectionHealth === 'CONNECTED';
   const isOffline = connectionHealth === 'OFFLINE' || connectionState === 'STANDALONE_FALLBACK';
   const isReconnecting = connectionHealth === 'CONNECTING';
@@ -27,50 +26,52 @@ export const ConnectionStatusBadge: React.FC<ConnectionStatusBadgeProps> = ({
 
   return (
     <div className="flex items-center gap-2">
-      {/* Plain English Status Pill */}
       {isConnected ? (
         <div
           title="Direct secure connection established with central database."
-          className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-xs"
+          className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold whitespace-nowrap bg-emerald-50 text-emerald-800 border border-emerald-300"
         >
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
           <span>Connected to Central Server</span>
         </div>
       ) : isReconnecting ? (
         <div
           title="Attempting to re-establish secure connection with central server..."
-          className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-blue-50 text-blue-800 border border-blue-300 shadow-xs animate-pulse"
+          className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold whitespace-nowrap bg-blue-50 text-blue-800 border border-blue-300"
         >
-          <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
+          <Loader2 className="w-3 h-3 animate-spin text-blue-600" />
           <span>Reconnecting...</span>
         </div>
       ) : isError ? (
         <div
           title={connectionError || 'Connection error. Please inspect network.'}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-rose-50 text-rose-800 border border-rose-300 shadow-xs"
+          className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold whitespace-nowrap bg-rose-50 text-rose-800 border border-rose-300"
         >
-          <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+          <AlertTriangle className="w-3 h-3 text-rose-600" />
           <span>Connection Problem — Check Network</span>
         </div>
       ) : (
         <div
-          title="Operating in protected local mode. Changes will be synced to central server automatically."
-          className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 shadow-xs"
+          title={
+            isOffline
+              ? 'Operating in protected local mode. Changes will be synced to central server automatically.'
+              : 'Connection status is being checked.'
+          }
+          className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold whitespace-nowrap bg-amber-50 text-amber-900 border border-amber-300"
         >
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-          <span>Offline Mode — Changes Pending Sync</span>
+          <WifiOff className="w-3 h-3 text-amber-600" />
+          <span>{isOffline ? 'Offline Mode — Changes Pending Sync' : 'Offline'}</span>
         </div>
       )}
 
-      {/* Force Sync Action Button */}
       {onForceSync && (
         <button
           onClick={() => onForceSync()}
           disabled={isSyncing}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-borderSoft transition shadow-xs disabled:opacity-50"
+          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium whitespace-nowrap bg-slate-100 hover:bg-slate-200 text-slate-700 border border-borderSoft transition disabled:opacity-50"
           title="Force immediate check and push pending changes to central server"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-primary' : 'text-slate-600'}`} />
+          <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin text-primary' : 'text-slate-600'}`} />
           <span>{isSyncing ? 'Syncing...' : 'Force Sync'}</span>
         </button>
       )}

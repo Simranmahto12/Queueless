@@ -59,7 +59,7 @@ export const VisitorLoginView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-appBg flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans select-none">
+    <div className="flex-1 bg-appBg flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans select-none">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         {/* Brand Icon */}
         <div className="flex justify-center">

@@ -42,7 +42,7 @@ export const VisitorForgotPasswordView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-appBg flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans select-none">
+    <div className="flex-1 bg-appBg flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans select-none">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center text-white font-bold text-2xl shadow-md border border-primary">
