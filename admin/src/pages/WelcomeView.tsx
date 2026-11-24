@@ -242,14 +242,14 @@ export const WelcomeView: React.FC = () => {
         <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 max-w-5xl mx-auto mb-16 shadow-lg border border-slate-800">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-slate-800 gap-4">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/20 text-blue-400 text-xs font-bold uppercase tracking-wider mb-2">
-                <Sparkles className="w-3.5 h-3.5" />
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs font-bold uppercase tracking-wider mb-2">
+                <Sparkles className="w-3.5 h-3.5 text-blue-400" />
                 <span>On-Site Physical Operations</span>
               </div>
-              <h3 className="text-xl sm:text-2xl font-bold tracking-tight">
+              <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
                 Dedicated Terminals for Physical Facilities
               </h3>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1">
+              <p className="text-xs sm:text-sm text-slate-300 mt-1">
                 Zero-setup dedicated modes for lobby screens, self-service walk-in kiosks, and front-desk counter staff.
               </p>
             </div>
@@ -259,66 +259,72 @@ export const WelcomeView: React.FC = () => {
             {/* Terminal 1: Lobby TV Display */}
             <Link
               to="/display"
-              className="p-5 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 hover:border-primary/60 transition group flex flex-col justify-between"
+              className="p-5 rounded-2xl bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 hover:border-emerald-500/60 transition-all duration-200 group flex flex-col justify-between shadow-sm hover:shadow-md"
             >
               <div>
                 <div className="text-xs font-bold font-mono text-emerald-400 uppercase tracking-wider mb-1">
                   Public Board
                 </div>
-                <h4 className="text-lg font-bold text-white group-hover:text-primary transition">
+                <h4 className="text-lg font-bold text-white group-hover:text-emerald-300 transition-colors">
                   Lobby TV Display
                 </h4>
-                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                <p className="text-xs text-slate-300 mt-1 leading-relaxed">
                   Fullscreen wall-mounted display with live queue calls, next in line, and voice announcements.
                 </p>
               </div>
-              <div className="mt-4 pt-3 border-t border-slate-700/60 flex items-center justify-between text-xs font-bold text-primary">
-                <span>Launch TV Mode</span>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition" />
+              <div className="mt-5 pt-3 border-t border-slate-700/80">
+                <div className="w-full inline-flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 group-hover:bg-emerald-600 group-hover:text-white group-hover:border-emerald-400 text-xs font-semibold transition-all duration-200 shadow-sm">
+                  <span>Launch TV Mode</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </div>
               </div>
             </Link>
 
             {/* Terminal 2: Walk-In Kiosk */}
             <Link
               to="/kiosk"
-              className="p-5 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 hover:border-primary/60 transition group flex flex-col justify-between"
+              className="p-5 rounded-2xl bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 hover:border-blue-500/60 transition-all duration-200 group flex flex-col justify-between shadow-sm hover:shadow-md"
             >
               <div>
                 <div className="text-xs font-bold font-mono text-blue-400 uppercase tracking-wider mb-1">
                   Self-Service
                 </div>
-                <h4 className="text-lg font-bold text-white group-hover:text-primary transition">
+                <h4 className="text-lg font-bold text-white group-hover:text-blue-300 transition-colors">
                   Walk-In Ticket Kiosk
                 </h4>
-                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                <p className="text-xs text-slate-300 mt-1 leading-relaxed">
                   Touchscreen terminal for walk-in visitors to select services, issue tokens, and print QR tickets.
                 </p>
               </div>
-              <div className="mt-4 pt-3 border-t border-slate-700/60 flex items-center justify-between text-xs font-bold text-primary">
-                <span>Open Kiosk Mode</span>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition" />
+              <div className="mt-5 pt-3 border-t border-slate-700/80">
+                <div className="w-full inline-flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-blue-500/15 text-blue-300 border border-blue-500/30 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-400 text-xs font-semibold transition-all duration-200 shadow-sm">
+                  <span>Open Kiosk Mode</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </div>
               </div>
             </Link>
 
             {/* Terminal 3: Counter Station */}
             <Link
               to="/admin/login"
-              className="p-5 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 hover:border-primary/60 transition group flex flex-col justify-between"
+              className="p-5 rounded-2xl bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 hover:border-amber-500/60 transition-all duration-200 group flex flex-col justify-between shadow-sm hover:shadow-md"
             >
               <div>
                 <div className="text-xs font-bold font-mono text-amber-400 uppercase tracking-wider mb-1">
                   Desk Station
                 </div>
-                <h4 className="text-lg font-bold text-white group-hover:text-primary transition">
+                <h4 className="text-lg font-bold text-white group-hover:text-amber-300 transition-colors">
                   Counter Focus Mode
                 </h4>
-                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                <p className="text-xs text-slate-300 mt-1 leading-relaxed">
                   Distraction-free desk view for staff with 64px tokens, keyboard shortcuts, and synthesized chimes.
                 </p>
               </div>
-              <div className="mt-4 pt-3 border-t border-slate-700/60 flex items-center justify-between text-xs font-bold text-primary">
-                <span>Staff Sign In</span>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition" />
+              <div className="mt-5 pt-3 border-t border-slate-700/80">
+                <div className="w-full inline-flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-amber-500/15 text-amber-300 border border-amber-500/30 group-hover:bg-amber-600 group-hover:text-white group-hover:border-amber-400 text-xs font-semibold transition-all duration-200 shadow-sm">
+                  <span>Staff Sign In</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </div>
               </div>
             </Link>
           </div>
